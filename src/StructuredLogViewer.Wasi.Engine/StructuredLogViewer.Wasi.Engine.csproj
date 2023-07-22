@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>wasi-wasm</RuntimeIdentifier>
+    <OutputType>Exe</OutputType>
+    <PublishTrimmed>true</PublishTrimmed>
+    <WasmSingleFileBundle>true</WasmSingleFileBundle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StructuredLogger\StructuredLogger.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyWasiModuleToVSCodeExtensionPath" AfterTargets="_WasiGenerateAppBundle"
+    Condition="'$(VSCodeExtensionWasiPublishPath)' != ''">
+    <PropertyGroup>
+      <ExpectedWasiModule>$(WasmAppDir)$(MSBuildProjectName).wasm</ExpectedWasiModule>
+      <VSCodeExtensionWasiPublishFullPath>$([MSBuild]::NormalizePath('$(VSCodeExtensionWasiPublishPath)'))</VSCodeExtensionWasiPublishFullPath>
+    </PropertyGroup>
+    <Message Importance="High" Text="Copying the WASM module from $(ExpectedWasiModule) to $(VSCodeExtensionWasiPublishFullPath)" />
+    <Error Text="$(ExpectedWasiModule) doesn't exist" Condition="!Exists($(ExpectedWasiModule))" />
+    <Copy SourceFiles="$(ExpectedWasiModule)" DestinationFolder="$(VSCodeExtensionWasiPublishFullPath)" SkipUnchangedFiles="true"/>
+  </Target>
+
+</Project>

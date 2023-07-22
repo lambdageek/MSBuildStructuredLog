@@ -1,0 +1,68 @@
+{
+	"name": "msbuild-structuredlog-viewer",
+	"private": "true",
+	"publisher": "lambdageek",
+	"version": "0.0.1",
+	"description": "Experimental: MS Build Structured Log Viewer",
+	"author": "lambdageek",
+	"license": "MIT",
+	"engines": {
+		"vscode": "^1.71.0"
+	},
+	"main": "./dist/extension/desktop/extension.js",
+	"browser": "./dist/extension/web/extension.js",
+	"activationEvents": [],
+	"extensionDependencies": [
+		"ms-vscode.wasm-wasi-core"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "start-viewer",
+				"category": "msbuild",
+				"title": "Start Strctured Log Viewer"
+			}
+		]
+	},
+	"scripts": {
+		"clean": "node ./node_modules/rimraf/bin.js dist out ../bin/StructuredLogViewer.Wasi.Engine ../obj/StructuredLogViewer.Wasi.Engine",
+		"compile:ts": "tsc -p tsconfig.json --noEmit",
+		"build": "npm run compile:ts && npm run build:dotnet && npm run build:esbuild",
+		"build:dotnet": "./node_modules/.bin/make-dir ./dist && dotnet publish -c Release ../src/StructuedLogViewer.Wasi.Engine/StructuedLogViewer.Wasi.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
+		"build:esbuild": "node ./script/esbuild.js",
+		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
+		"package": "vsce package --pre-release"
+	},
+	"dependencies": {
+		"@vscode/wasm-wasi": "^0.13.0-pre.1",
+		"vscode-uri": "^3.0.3"
+	},
+	"devDependencies": {
+		"@types/assert": "^1.5.6",
+		"@types/glob": "^8.1.0",
+		"@types/mocha": "^9.1.1",
+		"@types/node": "^18.14.6",
+		"@types/path-browserify": "^1.0.0",
+		"@types/vscode": "^1.71.0",
+		"@typescript-eslint/eslint-plugin": "^5.35.1",
+		"@typescript-eslint/parser": "^5.35.1",
+		"@vscode/test-electron": "^2.3.0",
+		"@vscode/test-web": "^0.0.43",
+		"@vscode/tsconfig-gen": "0.1.0",
+		"@vscode/vsce": "^2.19.0",
+		"esbuild": "^0.17.14",
+		"eslint": "^8.22.0",
+		"glob": "^9.3.1",
+		"http-server": "^14.1.1",
+		"make-dir-cli": "^3.0.0",
+		"mocha": "^10.0.0",
+		"node-polyfill-webpack-plugin": "^2.0.1",
+		"path-browserify": "^1.0.1",
+		"playwright": "^1.33.0",
+		"rimraf": "^3.0.2",
+		"serve": "^14.2.0",
+		"shelljs": "^0.8.5",
+		"shx": "^0.3.4",
+		"typescript": "^5.0.4"
+	}
+}
