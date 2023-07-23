@@ -1,7 +1,11 @@
 out/
 src/
-tsconfig.json
+script/
+node_modules/
 .vscodeignore
 .gitignore
-script/
+*~
+tsconfig.json
 package-lock.json
+*.binlog
+*.vsix
