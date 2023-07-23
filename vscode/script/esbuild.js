@@ -1,5 +1,6 @@
 // this should create the dist directory
 //@ts-check
+const process = require("process");
 const esbuild = require("esbuild");
 
 /**
@@ -46,7 +47,7 @@ const sharedWebviewOptions = {
   external: [],
   target: "es2020",
   platform: "browser",
-  sourecemap: true,
+  sourcemap: true,
 };
 
 /** @type BuildOptions */
