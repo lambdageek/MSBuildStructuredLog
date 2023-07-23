@@ -10,7 +10,10 @@ class MSBuildLogDocument implements vscode.CustomDocument {
 }
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
+    static out: vscode.LogOutputChannel;
     public static register(context: vscode.ExtensionContext): vscode.Disposable {
+        MSBuildLogViewerReadonlyEditorProvider.out = vscode.window.createOutputChannel('MSBuild Log View', { log: true });
+
         return vscode.window.registerCustomEditorProvider(MSBuildLogViewerReadonlyEditorProvider.viewType,
             new MSBuildLogViewerReadonlyEditorProvider(context),
             {
@@ -38,8 +41,10 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         };
         const subscription = webviewPanel.webview.onDidReceiveMessage((e) => {
             if (e.type === 'ready') {
+                MSBuildLogViewerReadonlyEditorProvider.out.appendLine('got ready event back from webview');
                 subscription.dispose();
                 webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(document, e));
+                webviewPanel.webview.postMessage({ type: 'init' });
             }
         });
         webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
