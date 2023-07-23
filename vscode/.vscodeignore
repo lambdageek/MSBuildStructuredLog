@@ -6,6 +6,7 @@ node_modules/
 .gitignore
 *~
 tsconfig.json
+tsconfig.*.json
 package-lock.json
 *.binlog
 *.vsix

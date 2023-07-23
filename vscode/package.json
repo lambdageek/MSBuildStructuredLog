@@ -16,17 +16,28 @@
 		"ms-vscode.wasm-wasi-core"
 	],
 	"contributes": {
+		"customEditors": [
+			{
+				"viewType": "msbuild-structured-log.base",
+				"displayName": "MSBuild Structure Log Viewer",
+				"selector": [
+					{
+						"filenamePattern": "*.binlog"
+					}
+				]
+			}
+		],
 		"commands": [
 			{
-				"command": "start-viewer",
+				"command": "msbuild-structured-log.start-viewer",
 				"category": "msbuild",
-				"title": "Start Strctured Log Viewer"
+				"title": "Start Structured Log Viewer"
 			}
 		]
 	},
 	"scripts": {
 		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Wasi.Engine ../obj/StructuredLogViewer.Wasi.Engine",
-		"compile:ts": "tsc -p tsconfig.json --noEmit",
+		"compile:ts": "tsc -b tsconfig.json",
 		"build": "npm run compile:ts && npm run build:dotnet && npm run build:esbuild",
 		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release ../src/StructuredLogViewer.Wasi.Engine/StructuredLogViewer.Wasi.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
 		"build:esbuild": "node ./script/esbuild.js",
@@ -39,6 +50,7 @@
 	"devDependencies": {
 		"@types/node": "^20.4.4",
 		"@types/vscode": "^1.71.0",
+		"@types/vscode-webview": "^1.57.1",
 		"@typescript-eslint/eslint-plugin": "^6.1.0",
 		"@vscode/test-web": "^0.0.44",
 		"@vscode/vsce": "^2.19.0",

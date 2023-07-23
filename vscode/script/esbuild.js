@@ -54,7 +54,7 @@ const sharedWebviewOptions = {
 const webviewOptions = {
   entryPoints: ["src/webview/webview.ts"],
   outfile: "dist/webview/webview.js",
-  format: "cjs",
+  format: "iife",
   ...sharedWebviewOptions,
 };
 

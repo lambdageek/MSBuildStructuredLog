@@ -1,9 +1,13 @@
+import type { ExtensionContext } from "vscode";
+//import type { LogModel } from "../../shared/model";
+//import { commands, ExtensionContext, Uri, window, workspace } from 'vscode';
+//import { /*ProcessOptions,*/ Wasm } from '@vscode/wasm-wasi';
 
-import { commands, ExtensionContext, Uri, window, workspace } from 'vscode';
-import { ProcessOptions, Wasm } from '@vscode/wasm-wasi';
+import { MSBuildLogViewerReadonlyEditorProvider } from "./MSBuildLogViewerReadonlyEditorProvider";
 
-export async function activate(_context: ExtensionContext) {
-    const _wasm: Wasm = await Wasm.load();
+export async function activate(context: ExtensionContext) {
+    context.subscriptions.push(MSBuildLogViewerReadonlyEditorProvider.register(context));
+    /*const _wasm: Wasm = await Wasm.load();*/
     // commands.registerCommand('testbed-dotnet.run', async () => {
     // 	const pty = wasm.createPseudoterminal();
     // 	const debugOut = window.createOutputChannel('.NET WASI Hello');

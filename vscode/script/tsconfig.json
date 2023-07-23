@@ -1,0 +1,12 @@
+{
+  "files": ["esbuild.js"],
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "types": [
+      "node"
+    ],
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "noEmit": true,
+  }
+}
