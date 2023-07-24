@@ -1,0 +1,2 @@
+# in this directory we want binlogs
+!*.binlog

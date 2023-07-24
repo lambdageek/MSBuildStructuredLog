@@ -1,0 +1,5 @@
+<Project DefaultTarget="Hello">
+  <Target Name="Hello">
+    <Message Text="Hello" />
+  </Target>
+</Project>

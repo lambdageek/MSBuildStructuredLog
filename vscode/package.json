@@ -42,7 +42,8 @@
 		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release ../src/StructuredLogViewer.Wasi.Engine/StructuredLogViewer.Wasi.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
-		"package": "vsce package --pre-release"
+		"package": "vsce package --pre-release",
+    "gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
