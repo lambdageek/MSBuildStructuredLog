@@ -1,9 +1,12 @@
+export * from 'web-streams-polyfill/es2018';
+
 import type { ExtensionContext } from "vscode";
 //import type { LogModel } from "../../shared/model";
 //import { commands, ExtensionContext, Uri, window, workspace } from 'vscode';
 //import { /*ProcessOptions,*/ Wasm } from '@vscode/wasm-wasi';
 
 import { MSBuildLogViewerReadonlyEditorProvider } from "./MSBuildLogViewerReadonlyEditorProvider";
+
 
 export async function activate(context: ExtensionContext) {
     context.subscriptions.push(MSBuildLogViewerReadonlyEditorProvider.register(context));

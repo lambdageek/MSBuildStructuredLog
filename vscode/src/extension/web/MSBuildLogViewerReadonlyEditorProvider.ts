@@ -1,13 +1,6 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
-
-class MSBuildLogDocument implements vscode.CustomDocument {
-    constructor(readonly uri: Uri) {
-    }
-
-    dispose() {
-    }
-}
+import { openMSBuildLogDocument, MSBuildLogDocument } from './MSBuildLogDocument';
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
@@ -26,12 +19,10 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
 
     public static readonly viewType = 'msbuild-structured-log.base';
 
-    constructor(private readonly _context: vscode.ExtensionContext) {
+    constructor(private readonly context: vscode.ExtensionContext) { }
 
-    }
-
-    openCustomDocument(uri: Uri, _openContext: vscode.CustomDocumentOpenContext, _token: vscode.CancellationToken): MSBuildLogDocument | Thenable<MSBuildLogDocument> {
-        return new MSBuildLogDocument(uri);
+    async openCustomDocument(uri: Uri, _openContext: vscode.CustomDocumentOpenContext, _token: vscode.CancellationToken): Promise<MSBuildLogDocument> {
+        return await openMSBuildLogDocument(this.context, uri, MSBuildLogViewerReadonlyEditorProvider.out);
     }
 
     async resolveCustomEditor(document: MSBuildLogDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken): Promise<void> {
@@ -86,7 +77,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
 
     private assetUri(webview: vscode.Webview, asset: string, opts?: { kind?: string }): Uri {
         const kind = opts?.kind ?? 'assets';
-        return webview.asWebviewUri(Uri.joinPath(this._context.extensionUri, kind, asset));
+        return webview.asWebviewUri(Uri.joinPath(this.context.extensionUri, kind, asset));
     }
 
     onMessage(_document: MSBuildLogDocument, _e: any) {
