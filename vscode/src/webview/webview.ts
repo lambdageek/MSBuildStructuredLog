@@ -32,6 +32,7 @@ function paintNode(nodeId: number, container: HTMLElement) {
         if (node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');
+                childBox.setAttribute('class', 'treeNode');
                 container.appendChild(childBox);
                 paintNode(node.children[i], childBox);
             }
@@ -47,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function refresh() {
         if (rootId != -1) {
+            div.setAttribute('class', 'treeNode');
             paintNode(rootId, div);
         }
     }
@@ -79,14 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             case 'node': {
                 div.innerHTML = `<h2>Got a node</h2>`;
-                setTimeout(() => {
-                    const node = ev.data as NodeReply;
-                    if (rootId < 0) {
-                        rootId = node.nodeId;
-                    }
-                    addNodeToMap(node);
-                    refresh();
-                }, 100);
+                const node = ev.data as NodeReply;
+                if (rootId < 0) {
+                    rootId = node.nodeId;
+                }
+                addNodeToMap(node);
+                refresh();
                 break;
             }
             default:

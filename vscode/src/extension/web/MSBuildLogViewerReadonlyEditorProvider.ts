@@ -61,6 +61,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
     getHtmlForWebview(webview: vscode.Webview): string {
         const resetCssUri = this.assetUri(webview, 'reset.css');
         const vscodeCssUri = this.assetUri(webview, 'vscode.css');
+        const logviewerCssUri = this.assetUri(webview, 'logviewer.css');
         const scriptUri = this.assetUri(webview, 'webview.js', { kind: 'dist/webview' });
         const nonce = "ABCDEF123";// FIXME
         const html = /* html */ `
@@ -79,6 +80,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
 
             <link href="${resetCssUri}" rel="stylesheet" />
             <link href="${vscodeCssUri}" rel="stylesheet" />
+            <link href="${logviewerCssUri}" rel="stylesheet" />
 
             <title>MSBuild Log Viewer</title>
         </head>

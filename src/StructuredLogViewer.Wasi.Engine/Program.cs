@@ -92,11 +92,13 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
             childIds[d++] = childId;
         }
     }
+    var summary = node.ToString();
+    summary ??= $"[unprintable node of type {node.GetType()}]";
     var msg = new NodeMessage()
     {
         RequestId = requestId,
         NodeId = id,
-        Summary = node.ToString(),
+        Summary = summary,
         Children = childIds
     };
     sender.SendNode(msg);
