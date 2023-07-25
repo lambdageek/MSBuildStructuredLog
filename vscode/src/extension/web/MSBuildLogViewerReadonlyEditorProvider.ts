@@ -1,6 +1,18 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
-import { openMSBuildLogDocument, MSBuildLogDocument } from './MSBuildLogDocument';
+import { openMSBuildLogDocument, MSBuildLogDocument, WasmState } from './MSBuildLogDocument';
+
+interface WebviewResponse {
+    type: string;
+}
+
+function assertNever(_x: never): never {
+    throw Error("should not happen");
+}
+
+function isWebviewResponse(x: unknown): x is WebviewResponse {
+    return (typeof (x) === 'object') && (x as WebviewResponse).type !== 'undefined';
+}
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
@@ -39,12 +51,11 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             if (e.type === 'ready') {
                 MSBuildLogViewerReadonlyEditorProvider.out.info('got ready event back from webview');
                 subscription.dispose();
-                webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(document, e));
+                webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(webviewPanel, document, e));
                 webviewPanel.webview.postMessage({ type: 'init' });
             }
         });
         webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
-
     }
 
     getHtmlForWebview(webview: vscode.Webview): string {
@@ -85,8 +96,63 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         return webview.asWebviewUri(Uri.joinPath(this.context.extensionUri, kind, asset));
     }
 
-    onMessage(_document: MSBuildLogDocument, _e: any) {
+    onMessage(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: unknown) {
+        if (isWebviewResponse(e)) {
+            switch (e.type) {
+                case 'ready':
+                    this.postStateChange(webviewPanel.webview, document.state);
+                    if (document.isLive()) {
+                        const stateChangeDisposable = document.onStateChange((ev) => this.postStateChange(webviewPanel.webview, ev.state, stateChangeDisposable));
+                    }
+                case 'root':
+                case 'node':
+                    this.onNodeRequest(webviewPanel, document, e as any);
+                    break;
+                default:
+                    MSBuildLogViewerReadonlyEditorProvider.out.warn(`unexpected response from webview ${e.type}`)
+            }
+        }
+    }
 
+    async onNodeRequest(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewResponse & { type: 'root' | 'node' }): Promise<void> {
+        switch (e.type) {
+            case 'root': {
+                const node = await document.requestRoot();
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(node)}`);
+                webviewPanel.webview.postMessage(JSON.parse(JSON.stringify(node)));
+                break;
+            }
+            case 'node': {
+                const id = (e as any).nodeId;
+                const node = await document.requestNode(id);
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(node)}`);
+                webviewPanel.webview.postMessage(JSON.parse(JSON.stringify(node)));
+                break;
+            }
+            default:
+                assertNever(e.type);
+        }
+    }
+
+    postStateChange(webview: vscode.Webview, state: WasmState, disposable?: vscode.Disposable) {
+        switch (state) {
+            case WasmState.READY:
+                webview.postMessage({ type: 'ready' });
+                break;
+            case WasmState.SHUTTING_DOWN:
+            case WasmState.TERMINATING:
+            case WasmState.EXIT_SUCCESS:
+                webview.postMessage({ type: 'done' });
+                disposable?.dispose(); // unsubscribe
+                break;
+            case WasmState.EXIT_FAILURE:
+                webview.postMessage({ type: 'faulted' });
+                disposable?.dispose(); // unsubscribe
+                break;
+            default:
+                /* ignore */
+                break;
+        }
     }
 }
 

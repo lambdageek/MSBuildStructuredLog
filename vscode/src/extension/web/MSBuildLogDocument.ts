@@ -27,9 +27,11 @@ import * as jsonStreamParser from '@streamparser/json';
 
 let wasm: Wasm | null = null;
 
-enum WasmState {
-    RUNNING,
-    TERMINATED,
+export enum WasmState {
+    STARTING,
+    READY,
+    SHUTTING_DOWN,
+    TERMINATING,
     EXIT_SUCCESS,
     EXIT_FAILURE,
 }
@@ -41,6 +43,18 @@ interface DisposableLike {
 interface TypedMessage {
     type: string;
 }
+
+type NodeId = number;
+
+interface NodeReply {
+    type: 'node';
+    requestId: number;
+    nodeId: NodeId;
+    summary: string;
+    children?: [NodeId];
+}
+
+type NodeReplyCallback = (reply: NodeReply) => any;
 
 function isTypedMessage(x: unknown): x is TypedMessage {
     return typeof (x) === 'object' && (x as TypedMessage).type !== undefined;
@@ -73,7 +87,9 @@ function callbackWritableStream<T>(onData: (value: T) => any): WritableStream<T>
 }
 
 function jsonTransformer(): TransformStream<Uint8Array, jsonStreamParser.ParsedElementInfo.ParsedElementInfo> {
-    var parser = new jsonStreamParser.JSONParser();
+    var parser = new jsonStreamParser.JSONParser({
+        separator: '', /* don't end the stream after the first toplevel object */
+    });
     let controller: TransformStreamDefaultController<jsonStreamParser.ParsedElementInfo.ParsedElementInfo> = null as any;
     parser.onValue = (value => controller.enqueue(value)); // FIXME: clone?
     parser.onError = (err) => controller.error(err);
@@ -94,7 +110,7 @@ function jsonTransformer(): TransformStream<Uint8Array, jsonStreamParser.ParsedE
 function jsonFromChunks(onJson: (value: jsonStreamParser.JsonTypes.JsonPrimitive | jsonStreamParser.JsonTypes.JsonStruct) => any): ByteChunkListener {
     const [chunkListener, inputStream] = makeByteChunkStream();
     inputStream.pipeThrough(jsonTransformer()).pipeTo(callbackWritableStream((parsedElementInfo) => {
-        if (parsedElementInfo.stack.length > 0)
+        if (parsedElementInfo.stack.length > 0 || parsedElementInfo.parent !== undefined)
             return;
         onJson(parsedElementInfo.value);
     }));
@@ -108,20 +124,30 @@ function stringFromChunks(onString: (value: string) => any): ByteChunkListener {
     return chunkListener;
 }
 
-export class MSBuildLogDocument implements vscode.CustomDocument {
+export interface WasmStateChangeEvent {
     state: WasmState;
+}
+
+export class MSBuildLogDocument implements vscode.CustomDocument {
+    _state: WasmState;
     disposables: DisposableLike[];
+    _nextRequestId: number;
+    _requestDispatch: Map<number, NodeReplyCallback>;
+    readonly stateChangeEmitter: vscode.EventEmitter<WasmStateChangeEvent>;
     constructor(readonly uri: Uri, readonly process: WasmProcess, readonly out: vscode.LogOutputChannel) {
-        this.state = WasmState.RUNNING;
+        this._state = WasmState.STARTING;
+        this._nextRequestId = 0;
+        this._requestDispatch = new Map<number, NodeReplyCallback>();
         this.disposables = [];
+        this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<WasmStateChangeEvent>());
         this.runProcess();
-        this.disposables.push(process.stdout!.onData(jsonFromChunks((value) => this.onStdOut(value))));
-        this.disposables.push(process.stderr!.onData(stringFromChunks((value) => this.onStdErr(value))));
+        this.disposables.push(process.stdout!.onData(jsonFromChunks((value) => this.gotStdOut(value))));
+        this.disposables.push(process.stderr!.onData(stringFromChunks((value) => this.gotStdErr(value))));
     }
 
     dispose() {
         this.process.terminate();
-        this.state = WasmState.TERMINATED;
+        this._state = WasmState.TERMINATING;
         this.disposables.forEach(d => d.dispose());
     }
 
@@ -130,29 +156,42 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
             .then((exitCode) => {
                 switch (exitCode) {
                     case 0:
-                        this.state = WasmState.EXIT_SUCCESS;
+                        this._state = WasmState.EXIT_SUCCESS;
                         break;
                     default:
                         this.out.warn(`wasm process for ${this.uri} returned with exit code ${exitCode}`)
-                        this.state = WasmState.EXIT_FAILURE;
+                        this._state = WasmState.EXIT_FAILURE;
                         break;
                 }
             })
             .catch((reason) => {
                 this.out.warn(`wasm process for ${this.uri} threw ${reason}`);
-                this.state = WasmState.EXIT_FAILURE;
+                this._state = WasmState.EXIT_FAILURE;
             });
     }
 
-    onStdOut(value: unknown) {
+    gotStdOut(value: unknown) {
         this.out.info(`received from wasm process: ${value}`);
         if (isTypedMessage(value)) {
             switch (value.type) {
                 case 'ready':
                     this.out.info(`wasm process signalled Ready`);
+                    this._state = WasmState.READY;
+                    this.stateChangeEmitter.fire({ state: this.state });
                     break;
                 case 'done':
                     this.out.info(`wasm process signalled Done`);
+                    this._state = WasmState.SHUTTING_DOWN;
+                    this.stateChangeEmitter.fire({ state: this.state });
+                    break;
+                case 'node':
+                    const nodeReply = value as NodeReply;
+                    const requestId = nodeReply.requestId;
+                    const callback = this._requestDispatch.get(requestId);
+                    if (callback !== undefined) {
+                        this._requestDispatch.delete(requestId);
+                        queueMicrotask(() => callback(nodeReply));
+                    }
                     break;
                 default:
                     this.out.warn(`received unknown message from wasm: ${value.type}`);
@@ -160,9 +199,67 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
             }
         }
     }
-    onStdErr(value: string) {
+    gotStdErr(value: string) {
         this.out.error(value);
     }
+
+    get onStateChange(): vscode.Event<WasmStateChangeEvent> { return this.stateChangeEmitter.event; }
+
+    get state(): WasmState { return this._state; }
+
+    isLive(): boolean {
+        switch (this.state) {
+            case WasmState.SHUTTING_DOWN:
+            case WasmState.TERMINATING:
+            case WasmState.EXIT_SUCCESS:
+            case WasmState.EXIT_FAILURE:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    async postCommand(requestId: number, command: string, extraArg?: number | string): Promise<void> {
+        let extra = "";
+        if (extraArg !== undefined) {
+            extra = `${extraArg}\n`;
+        }
+        await this.process.stdin?.write(`${requestId}\n${command}\n${extra}`, 'utf-8');
+    }
+
+    makeReplyPromise(): [number, Promise<NodeReply>] {
+        const requestId = this._nextRequestId++;
+        const promise = new Promise<NodeReply>((resolve, _reject) => {
+            // TODO: reject on close?
+            this._requestDispatch.set(requestId, resolve);
+        });
+        return [requestId, promise];
+    }
+
+    requestRoot(): Promise<NodeReply> {
+        const [requestId, replyPromise] = this.makeReplyPromise();
+        const promise = async (): Promise<NodeReply> => {
+            this.out.info(`requested root id=${requestId}`);
+            await this.postCommand(requestId, 'root');
+            const n = await replyPromise;
+            this.out.info(`god root id=${requestId} nodeId=${n.nodeId}`);
+            return n;
+        }
+        return promise();
+    }
+
+    requestNode(nodeId: number): Promise<NodeReply> {
+        const [requestId, replyPromise] = this.makeReplyPromise();
+        const promise = async (): Promise<NodeReply> => {
+            this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
+            await this.postCommand(requestId, 'node', nodeId);
+            const n = await replyPromise;
+            this.out.info(`god node id=${requestId} nodeId=${n.nodeId}`);
+            return n;
+        }
+        return promise();
+    }
+
 }
 
 export async function openMSBuildLogDocument(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<MSBuildLogDocument> {
