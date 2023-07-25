@@ -7,22 +7,21 @@ import { ProcessOptions, Wasm, WasmProcess } from '@vscode/wasm-wasi';
 
 import * as jsonStreamParser from '@streamparser/json';
 
-// async function dynamicImport(module: string): Promise<any> {
-//     return await import(module);
-// }
+async function dynamicImport(module: string): Promise<any> {
+    return await import(module);
+}
 
-// let polyfilledStreams = false;
-// async function polyfillStreams() {
-//     if (polyfilledStreams)
-//         return;
-//     if (typeof process === 'object') {
-//         const web = await dynamicImport('node:stream/web');
-//         if (typeof (globalThis.TextDecoderStream) === 'undefined') {
-//             Object.assign(globalThis, web);
-//         }
-//     }
-//     polyfilledStreams = true;
-// }
+let streams: typeof globalThis = globalThis;;
+
+let polyfilledStreams = false;
+async function polyfillStreams() {
+    if (polyfilledStreams)
+        return;
+    if (typeof process === 'object') {
+        streams = await dynamicImport('node:stream/web');
+    }
+    polyfilledStreams = true;
+}
 
 
 let wasm: Wasm | null = null;
@@ -70,7 +69,7 @@ function makeByteChunkStream(): ChunkListenerAndStream<Uint8Array> {
     function chunkListener(chunk: Uint8Array): void {
         controller.enqueue(chunk);
     }
-    const inputStream = new ReadableStream<Uint8Array>({
+    const inputStream = new streams.ReadableStream<Uint8Array>({
         start(streamController) {
             controller = streamController;
         }
@@ -79,7 +78,7 @@ function makeByteChunkStream(): ChunkListenerAndStream<Uint8Array> {
 }
 
 function callbackWritableStream<T>(onData: (value: T) => any): WritableStream<T> {
-    return new WritableStream<T>({
+    return new streams.WritableStream<T>({
         write(chunk, _controller): void {
             onData(chunk);
         }
@@ -94,7 +93,7 @@ function jsonTransformer(): TransformStream<Uint8Array, jsonStreamParser.ParsedE
     parser.onValue = (value => controller.enqueue(value)); // FIXME: clone?
     parser.onError = (err) => controller.error(err);
     parser.onEnd = () => controller.terminate();
-    return new TransformStream<Uint8Array, jsonStreamParser.ParsedElementInfo.ParsedElementInfo>({
+    return new streams.TransformStream<Uint8Array, jsonStreamParser.ParsedElementInfo.ParsedElementInfo>({
         start(c): void {
             controller = c;
         },
@@ -119,7 +118,7 @@ function jsonFromChunks(onJson: (value: jsonStreamParser.JsonTypes.JsonPrimitive
 
 function stringFromChunks(onString: (value: string) => any): ByteChunkListener {
     const [chunkListener, inputStream] = makeByteChunkStream();
-    const decoder = new TextDecoderStream();
+    const decoder = new streams.TextDecoderStream();
     inputStream.pipeThrough(decoder).pipeTo(callbackWritableStream(onString));
     return chunkListener;
 }
@@ -267,8 +266,8 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
     if (!wasm) {
         wasm = await Wasm.load();
     }
-    //if (!polyfilledStreams)
-    //    await polyfillStreams();
+    if (!polyfilledStreams)
+        await polyfillStreams();
     //try {
     const rootFileSystem = await wasm.createRootFileSystem([
         { kind: 'workspaceFolder' }
