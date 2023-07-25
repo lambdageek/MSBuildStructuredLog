@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Microsoft.Build.Logging.StructuredLogger;
+using StructuredLogViewer.Wasi.Engine;
 
 if (args.Length < 2 || !string.Equals(args[0], "interactive", StringComparison.OrdinalIgnoreCase))
 {
@@ -22,7 +23,10 @@ try
 {
     NodeMapper nodeIds = new();
 
-    SendReady();
+    using var stdOut = Console.OpenStandardOutput();
+    var sender = new Sender(stdOut);
+
+    sender.SendReady();
     var build = BinaryLog.ReadBuild(binlogPath);
     BuildAnalyzer.AnalyzeBuild(build);
 
@@ -31,7 +35,7 @@ try
     bool done = false;
     do
     {
-        if (!TryParseCommand(out Command command, out string requestId))
+        if (!TryParseCommand(out Command command, out int requestId))
         {
             throw new InvalidOperationException("Could not parse command");
         }
@@ -41,14 +45,14 @@ try
                 done = true;
                 break;
             case Command.Root:
-                SendNode(nodeIds, build, requestId);
+                SendNode(sender, nodeIds, build, requestId);
                 break;
             case Command.Node:
-                if (Int32.TryParse(Console.ReadLine(), out int requestedNodeId))
+                if (int.TryParse(Console.ReadLine(), out var requestedNodeId))
                 {
                     if (nodeIds.FindNodeWithId(requestedNodeId, out BaseNode node))
                     {
-                        SendNode(nodeIds, node, requestId);
+                        SendNode(sender, nodeIds, node, requestId);
                         break;
                     }
                     else
@@ -64,7 +68,7 @@ try
                 throw new UnreachableException("should not get here");
         }
     } while (!done);
-    SendDone();
+    sender.SendDone();
     return 0;
 }
 catch (Exception e)
@@ -74,48 +78,40 @@ catch (Exception e)
 }
 
 void
-SendReady()
-{
-    Console.WriteLine("""{"type": "ready"}""");
-}
-
-void
-SendDone()
-{
-    Console.WriteLine("""{"type": "done"}""");
-}
-
-void
-SendNode(NodeMapper nodeIds, BaseNode node, string requestId)
+SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
 {
     var id = nodeIds.nodeToId[node];
-    string children = "";
-    if (node is TreeNode tn && tn.HasChildren)
+    int[] childIds = null;
+    if (node is TreeNode tn && tn.HasChildren && tn.Children.Count > 0)
     {
-        StringBuilder childIds = new();
-        string commaSep = string.Empty;
-        bool first = true;
-        foreach (var childNode in tn.Children)
+        childIds = new int[tn.Children.Count];
+        int d = 0;
+        foreach (BaseNode childNode in tn.Children)
         {
-            int childId = nodeIds.GetOrAssignId(childNode);
-            childIds.Append($"{commaSep}{childId}");
-            if (first)
-            {
-                commaSep = ", ";
-                first = false;
-            }
+            var childId = nodeIds.GetOrAssignId(childNode);
+            childIds[d++] = childId;
         }
-        children = $", \"children\": [{childIds}]";
     }
-    Console.WriteLine($"{{\"type\": \"node\", \"requestId\": {requestId}, \"nodeId\": {id}, \"summary\": \"{node}\"{children}}}");
-    // TODO: send children ids
+    var msg = new NodeMessage()
+    {
+        RequestId = requestId,
+        NodeId = id,
+        Summary = node.ToString(),
+        Children = childIds
+    };
+    sender.SendNode(msg);
 }
 
 bool
-TryParseCommand(out Command command, out string requestId)
+TryParseCommand(out Command command, out int requestId)
 {
-    requestId = Console.ReadLine();
-    string cmd = Console.ReadLine();
+    var requestIdStr = Console.ReadLine();
+    if (!int.TryParse(requestIdStr, out requestId))
+    {
+        command = default;
+        return false;
+    }
+    var cmd = Console.ReadLine();
     switch (cmd)
     {
         case "quit":
@@ -150,8 +146,7 @@ class NodeMapper
 
     public int GetOrAssignId(BaseNode node)
     {
-        int id;
-        if (!nodeToId.TryGetValue(node, out id))
+        if (!nodeToId.TryGetValue(node, out var id))
         {
             id = _nextId++;
             nodeToId.Add(node, id);

@@ -5,6 +5,7 @@
     <OutputType>Exe</OutputType>
     <PublishTrimmed>true</PublishTrimmed>
     <WasmSingleFileBundle>true</WasmSingleFileBundle>
+    <RootNamespace>StructuredLogViewer.Wasi.Engine</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
