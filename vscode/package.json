@@ -38,7 +38,8 @@
 	"scripts": {
 		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Wasi.Engine ../obj/StructuredLogViewer.Wasi.Engine",
 		"compile:ts": "tsc -b tsconfig.json",
-		"build": "npm run compile:ts && npm run build:dotnet && npm run build:esbuild",
+		"build": "npm run build:dotnet && npm run build:js",
+		"build:js": "npm run compile:ts && npm run build:esbuild",
 		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release ../src/StructuredLogViewer.Wasi.Engine/StructuredLogViewer.Wasi.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
@@ -46,7 +47,7 @@
 		"gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
-		"@streamparser/json-whatwg": "^0.0.15",
+		"@streamparser/json": "^0.0.15",
 		"@vscode/wasm-wasi": "^0.13.0-pre.1",
 		"web-streams-polyfill": "^3.2.1"
 	},

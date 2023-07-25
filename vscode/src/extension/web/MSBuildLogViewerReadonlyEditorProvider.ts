@@ -4,8 +4,13 @@ import { openMSBuildLogDocument, MSBuildLogDocument } from './MSBuildLogDocument
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
-    public static register(context: vscode.ExtensionContext): vscode.Disposable {
-        MSBuildLogViewerReadonlyEditorProvider.out = vscode.window.createOutputChannel('MSBuild Log View', { log: true });
+    public static async register(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
+        const logOutputChannelName = 'MSBuild Log View';
+        MSBuildLogViewerReadonlyEditorProvider.out = vscode.window.createOutputChannel(logOutputChannelName, { log: true });
+        //await vscode.commands.executeCommand('workbench.action.setLogLevel', logOutputChannelName, 'Trace');
+        if (typeof process === 'object') {
+            MSBuildLogViewerReadonlyEditorProvider.out.info(`node version ${process.version}`);
+        }
 
         return vscode.window.registerCustomEditorProvider(MSBuildLogViewerReadonlyEditorProvider.viewType,
             new MSBuildLogViewerReadonlyEditorProvider(context),
@@ -32,7 +37,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         };
         const subscription = webviewPanel.webview.onDidReceiveMessage((e) => {
             if (e.type === 'ready') {
-                MSBuildLogViewerReadonlyEditorProvider.out.appendLine('got ready event back from webview');
+                MSBuildLogViewerReadonlyEditorProvider.out.info('got ready event back from webview');
                 subscription.dispose();
                 webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(document, e));
                 webviewPanel.webview.postMessage({ type: 'init' });

@@ -36,13 +36,13 @@ return 0;
 void
 SendReady()
 {
-    Console.WriteLine("""{type: "ready"}""");
+    Console.WriteLine("""{"type": "ready"}""");
 }
 
 void
 SendDone()
 {
-    Console.WriteLine("""{type: "done"}""");
+    Console.WriteLine("""{"type": "done"}""");
 }
 
 bool

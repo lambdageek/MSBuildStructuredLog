@@ -1,4 +1,3 @@
-export * from 'web-streams-polyfill/es2018';
 
 import type { ExtensionContext } from "vscode";
 //import type { LogModel } from "../../shared/model";
@@ -9,7 +8,7 @@ import { MSBuildLogViewerReadonlyEditorProvider } from "./MSBuildLogViewerReadon
 
 
 export async function activate(context: ExtensionContext) {
-    context.subscriptions.push(MSBuildLogViewerReadonlyEditorProvider.register(context));
+    context.subscriptions.push(await MSBuildLogViewerReadonlyEditorProvider.register(context));
     /*const _wasm: Wasm = await Wasm.load();*/
     // commands.registerCommand('testbed-dotnet.run', async () => {
     // 	const pty = wasm.createPseudoterminal();
