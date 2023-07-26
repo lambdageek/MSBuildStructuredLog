@@ -12,6 +12,7 @@ if (args.Length < 2 || !string.Equals(args[0], "interactive", StringComparison.O
     Console.Error.WriteLine("usage: StructuredLogViewer.Wasi.Engine interactive FILE.binlog");
     return 1;
 }
+
 var binlogPath = args[1];
 if (!File.Exists(binlogPath))
 {
@@ -22,6 +23,7 @@ if (!File.Exists(binlogPath))
 try
 {
     NodeMapper nodeIds = new();
+    NodeCollector nodeCollector = new(nodeIds);
 
     using var stdOut = Console.OpenStandardOutput();
     var sender = new Sender(stdOut);
@@ -52,6 +54,7 @@ try
                 {
                     if (nodeIds.FindNodeWithId(requestedNodeId, out BaseNode node))
                     {
+                        nodeCollector.MarkExplored(node);
                         SendNode(sender, nodeIds, node, requestId);
                         break;
                     }
@@ -63,6 +66,25 @@ try
                 else
                 {
                     throw new InvalidOperationException("can't parse node Id");
+                }
+            case Command.ManyNodes:
+                if (int.TryParse(Console.ReadLine(), out var requestedStartId) &&
+                    int.TryParse(Console.ReadLine(), out var count))
+                {
+                    if (nodeIds.FindNodeWithId(requestedStartId, out BaseNode start))
+                    {
+                        BaseNode[] nodes = nodeCollector.CollectNodes(start, count);
+                        SendManyNodes(sender, nodeIds, nodes, requestId);
+                        break;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("no start node with requested id");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("can't parse manyNodes id and count");
                 }
             default:
                 throw new UnreachableException("should not get here");
@@ -114,6 +136,22 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
     sender.SendNode(msg);
 }
 
+void
+SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId)
+{
+    var replyNodes = new Node[nodes.Length];
+    for (int i = 0; i < nodes.Length; i++)
+    {
+        replyNodes[i] = FormatNode(nodeIds, nodes[i]);
+    }
+    var msg = new ManyNodesMessage()
+    {
+        RequestId = requestId,
+        Nodes = replyNodes,
+    };
+    sender.SendNodes(msg);
+}
+
 bool
 TryParseCommand(out Command command, out int requestId)
 {
@@ -135,6 +173,9 @@ TryParseCommand(out Command command, out int requestId)
         case "node":
             command = Command.Node;
             return true;
+        case "manyNodes":
+            command = Command.ManyNodes;
+            return true;
         default:
             command = default;
             return false;
@@ -148,6 +189,7 @@ enum Command
     Quit,
     Root,
     Node,
+    ManyNodes,
 }
 
 class NodeMapper
@@ -167,9 +209,90 @@ class NodeMapper
         return id;
     }
 
+    public bool IsAssigned(BaseNode node)
+    {
+        return nodeToId.ContainsKey(node);
+    }
+
     public bool FindNodeWithId(int id, out BaseNode node)
     {
         return idToNode.TryGetValue(id, out node);
     }
 
+}
+
+class NodeCollector
+{
+    readonly Queue<BaseNode> _globalLeftovers;
+    readonly HashSet<int> _explored;
+    readonly NodeMapper _nodeMapper;
+    public NodeCollector(NodeMapper nodeMapper)
+    {
+        _globalLeftovers = new();
+        _explored = new();
+        _nodeMapper = nodeMapper;
+
+    }
+
+    public bool MarkExplored(BaseNode node)
+    {
+        int id = _nodeMapper.GetOrAssignId(node);
+        return _explored.Add(id);
+    }
+    public BaseNode[] CollectNodes(BaseNode start, int count, bool appendLeftovers = true)
+    {
+        var results = new BaseNode[count];
+        Queue<BaseNode> workQueue = new();
+        int added = 0;
+        if (start is TreeNode tn)
+        {
+            workQueue.Enqueue(tn);
+        }
+        else
+        {
+            if (MarkExplored(start))
+            {
+                results[added++] = start;
+            }
+        }
+        do
+        {
+            while (added < count && workQueue.TryDequeue(out BaseNode workNode))
+            {
+                if (MarkExplored(workNode))
+                {
+                    results[added++] = workNode;
+                    if (workNode is TreeNode parent)
+                    {
+                        foreach (var child in parent.Children)
+                        {
+                            workQueue.Enqueue(child);
+                        }
+                    }
+                }
+            }
+            /* if we didn't finish wiht the local work, put it on the global leftovers queue */
+            foreach (BaseNode leftover in workQueue)
+            {
+                _globalLeftovers.Enqueue(leftover);
+            }
+            /* if we don't want extra stuff, we're done */
+            if (!appendLeftovers)
+            {
+                return results;
+            }
+            /* otherwise, maybe we have room for some leftovers? */
+            if (added < count && _globalLeftovers.TryDequeue(out BaseNode leftoverNode))
+            {
+                /* enqueue more work and go around again */
+                workQueue.Enqueue(leftoverNode);
+            }
+            else
+            {
+                /* either we have enough nodes added, or there's no global work left, we're done */
+                break;
+            }
+        } while (true);
+        return results;
+    }
 }
