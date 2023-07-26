@@ -7,26 +7,7 @@ import { NodeId, Node } from '../../shared/model';
 import { DisposableLike } from '../../shared/disposable';
 import { SyncRequestDispatch } from '../../shared/sync-request';
 
-// export * from 'web-streams-polyfill';
-
-import * as jsonStreamParser from '@streamparser/json';
-
-async function dynamicImport(module: string): Promise<any> {
-    return await import(module);
-}
-
-let streams: typeof globalThis = globalThis;;
-
-let polyfilledStreams = false;
-async function polyfillStreams() {
-    if (polyfilledStreams)
-        return;
-    if (typeof process === 'object') {
-        streams = await dynamicImport('node:stream/web');
-    }
-    polyfilledStreams = true;
-}
-
+import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
 
 let wasm: Wasm | null = null;
 
@@ -52,69 +33,6 @@ function isTypedMessage(x: unknown): x is TypedMessage {
     return typeof (x) === 'object' && (x as TypedMessage).type !== undefined;
 }
 
-type ChunkListener<T> = (chunk: T) => any;
-type ChunkListenerAndStream<T> = [ChunkListener<T>, ReadableStream<T>];
-type ByteChunkListener = ChunkListener<Uint8Array>;
-
-
-function makeByteChunkStream(): ChunkListenerAndStream<Uint8Array> {
-    let controller: ReadableStreamController<Uint8Array> = undefined as any;
-    function chunkListener(chunk: Uint8Array): void {
-        controller.enqueue(chunk);
-    }
-    const inputStream = new streams.ReadableStream<Uint8Array>({
-        start(streamController) {
-            controller = streamController;
-        }
-    });
-    return [chunkListener, inputStream];
-}
-
-function callbackWritableStream<T>(onData: (value: T) => any): WritableStream<T> {
-    return new streams.WritableStream<T>({
-        write(chunk, _controller): void {
-            onData(chunk);
-        }
-    });
-}
-
-function jsonTransformer(): TransformStream<Uint8Array, jsonStreamParser.ParsedElementInfo.ParsedElementInfo> {
-    var parser = new jsonStreamParser.JSONParser({
-        separator: '', /* don't end the stream after the first toplevel object */
-    });
-    let controller: TransformStreamDefaultController<jsonStreamParser.ParsedElementInfo.ParsedElementInfo> = null as any;
-    parser.onValue = (value => controller.enqueue(value)); // FIXME: clone?
-    parser.onError = (err) => controller.error(err);
-    parser.onEnd = () => controller.terminate();
-    return new streams.TransformStream<Uint8Array, jsonStreamParser.ParsedElementInfo.ParsedElementInfo>({
-        start(c): void {
-            controller = c;
-        },
-        transform(chunk): void {
-            parser.write(chunk);
-        },
-        flush() {
-            parser.end();
-        }
-    });
-}
-
-function jsonFromChunks(onJson: (value: jsonStreamParser.JsonTypes.JsonPrimitive | jsonStreamParser.JsonTypes.JsonStruct) => any): ByteChunkListener {
-    const [chunkListener, inputStream] = makeByteChunkStream();
-    inputStream.pipeThrough(jsonTransformer()).pipeTo(callbackWritableStream((parsedElementInfo) => {
-        if (parsedElementInfo.stack.length > 0 || parsedElementInfo.parent !== undefined)
-            return;
-        onJson(parsedElementInfo.value);
-    }));
-    return chunkListener;
-}
-
-function stringFromChunks(onString: (value: string) => any): ByteChunkListener {
-    const [chunkListener, inputStream] = makeByteChunkStream();
-    const decoder = new streams.TextDecoderStream();
-    inputStream.pipeThrough(decoder).pipeTo(callbackWritableStream(onString));
-    return chunkListener;
-}
 
 export interface WasmStateChangeEvent {
     state: WasmState;
@@ -239,8 +157,7 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
     if (!wasm) {
         wasm = await Wasm.load();
     }
-    if (!polyfilledStreams)
-        await polyfillStreams();
+    await polyfillStreams();
     //try {
     const rootFileSystem = await wasm.createRootFileSystem([
         { kind: 'workspaceFolder' }
