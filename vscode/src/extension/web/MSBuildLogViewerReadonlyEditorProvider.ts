@@ -69,13 +69,13 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 MSBuildLogViewerReadonlyEditorProvider.out.info('got ready event back from webview');
                 subscription.dispose();
                 webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(webviewPanel, document, e));
-                webviewPanel.webview.postMessage({ type: 'init' });
+                webviewPanel.webview.postMessage({ type: 'init', fsPath: document.uri.fsPath });
             }
         });
-        webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
+        webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview, document.uri.fsPath);
     }
 
-    getHtmlForWebview(webview: vscode.Webview): string {
+    getHtmlForWebview(webview: vscode.Webview, documentFilePath: string): string {
         const resetCssUri = this.assetUri(webview, 'reset.css');
         const vscodeCssUri = this.assetUri(webview, 'vscode.css');
         const logviewerCssUri = this.assetUri(webview, 'logviewer.css');
@@ -102,8 +102,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             <title>MSBuild Log Viewer</title>
         </head>
         <body>
-            <h1>Hello</h1>
-            <div id="main-app"></div>
+            <div id="main-app">Starting bilog viewer for ${documentFilePath}...</div>
             <div id="logview-root-node"></div>
             <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>

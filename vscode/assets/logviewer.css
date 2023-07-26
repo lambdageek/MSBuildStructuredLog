@@ -1,3 +1,6 @@
+.error {
+    color: var(--vscode-errorForeground);
+}
 div.treeNode {
     padding-top: 1ex;
     padding-left: 2em;
