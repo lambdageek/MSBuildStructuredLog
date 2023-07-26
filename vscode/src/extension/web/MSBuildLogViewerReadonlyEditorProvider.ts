@@ -51,13 +51,17 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 this.postToWebview(webviewPanel.webview, { type: 'init', fsPath: document.uri.fsPath });
             }
         });
-        webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview, document.uri.fsPath);
+        webviewPanel.webview.html = await this.getHtmlForWebview(webviewPanel.webview, document.uri.fsPath);
     }
 
-    getHtmlForWebview(webview: vscode.Webview, documentFilePath: string): string {
+    async getHtmlForWebview(webview: vscode.Webview, documentFilePath: string): Promise<string> {
+        const resetCssContent = await this.assetContent('reset.css');
+        const vscodeCssContent = await this.assetContent('vscode.css');
+        const logviewerCssContent = await this.assetContent('logviewer.css');
         const resetCssUri = this.assetUri(webview, 'reset.css');
         const vscodeCssUri = this.assetUri(webview, 'vscode.css');
         const logviewerCssUri = this.assetUri(webview, 'logviewer.css');
+        const scriptContent = await this.assetContent('webview.js', { kind: 'dist/webview' });
         const scriptUri = this.assetUri(webview, 'webview.js', { kind: 'dist/webview' });
         const nonce = "ABCDEF123";// FIXME
         const html = /* html */ `
@@ -70,20 +74,24 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             Use a content security policy to only allow loading images from https or from our extension directory,
             and only allow scripts that have a specific nonce.
             -->
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} blob:; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} blob:; style-src 'nonce-${nonce}' ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
 
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-            <link href="${resetCssUri}" rel="stylesheet" />
-            <link href="${vscodeCssUri}" rel="stylesheet" />
-            <link href="${logviewerCssUri}" rel="stylesheet" />
+            <!-- link href="${resetCssUri}" rel="stylesheet" / -->
+            <!-- link href="${vscodeCssUri}" rel="stylesheet" / -->
+            <!-- link href="${logviewerCssUri}" rel="stylesheet" / -->
+            <style nonce="${nonce}">${resetCssContent}</style>
+            <style nonce="${nonce}">${vscodeCssContent}</style>
+            <style nonce="${nonce}">${logviewerCssContent}</style>
 
             <title>MSBuild Log Viewer</title>
         </head>
         <body>
             <div id="main-app">Starting binlog viewer for ${documentFilePath}...</div>
             <div id="logview-root-node"></div>
-            <script nonce="${nonce}" src="${scriptUri}"></script>
+            <!-- script nonce="${nonce}" src="${scriptUri}" --><!-- /script -->
+            <script nonce="${nonce}">${scriptContent}</script>
         </body>
         </html>`;
         return html;
@@ -92,6 +100,14 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
     private assetUri(webview: vscode.Webview, asset: string, opts?: { kind?: string }): Uri {
         const kind = opts?.kind ?? 'assets';
         return webview.asWebviewUri(Uri.joinPath(this.context.extensionUri, kind, asset));
+    }
+
+    private async assetContent(assetFile: string, opts?: { kind?: string }): Promise<string> {
+        const kind = opts?.kind ?? 'assets';
+        const path = Uri.joinPath(this.context.extensionUri, kind, assetFile);
+        const bytes = await vscode.workspace.fs.readFile(path);
+        const decoder = new TextDecoder('utf-8');
+        return decoder.decode(bytes);
     }
 
     onMessage(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewToCodeRequest | WebviewToCodeReply) {
