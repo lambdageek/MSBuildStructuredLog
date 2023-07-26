@@ -3,6 +3,9 @@ import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 import { ProcessOptions, Wasm, WasmProcess } from '@vscode/wasm-wasi';
 
+import { DisposableLike } from "../../shared/disposable";
+import { SyncRequestDispatch } from "../../shared/sync-request";
+
 // export * from 'web-streams-polyfill';
 
 import * as jsonStreamParser from '@streamparser/json';
@@ -35,10 +38,6 @@ export enum WasmState {
     EXIT_FAILURE,
 }
 
-interface DisposableLike {
-    dispose(): any;
-}
-
 interface TypedMessage {
     type: string;
 }
@@ -52,8 +51,6 @@ interface NodeReply {
     summary: string;
     children?: [NodeId];
 }
-
-type NodeReplyCallback = (reply: NodeReply) => any;
 
 function isTypedMessage(x: unknown): x is TypedMessage {
     return typeof (x) === 'object' && (x as TypedMessage).type !== undefined;
@@ -130,14 +127,12 @@ export interface WasmStateChangeEvent {
 export class MSBuildLogDocument implements vscode.CustomDocument {
     _state: WasmState;
     disposables: DisposableLike[];
-    _nextRequestId: number;
-    _requestDispatch: Map<number, NodeReplyCallback>;
+    readonly _requestDispatch: SyncRequestDispatch<NodeReply>;
     readonly stateChangeEmitter: vscode.EventEmitter<WasmStateChangeEvent>;
     constructor(readonly uri: Uri, readonly process: WasmProcess, readonly out: vscode.LogOutputChannel) {
         this._state = WasmState.STARTING;
-        this._nextRequestId = 0;
-        this._requestDispatch = new Map<number, NodeReplyCallback>();
         this.disposables = [];
+        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<NodeReply>());
         this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<WasmStateChangeEvent>());
         this.runProcess();
         this.disposables.push(process.stdout!.onData(jsonFromChunks((value) => this.gotStdOut(value))));
@@ -186,11 +181,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                 case 'node':
                     const nodeReply = value as NodeReply;
                     const requestId = nodeReply.requestId;
-                    const callback = this._requestDispatch.get(requestId);
-                    if (callback !== undefined) {
-                        this._requestDispatch.delete(requestId);
-                        queueMicrotask(() => callback(nodeReply));
-                    }
+                    this._requestDispatch.satisfy(requestId, nodeReply);
                     break;
                 default:
                     this.out.warn(`received unknown message from wasm: ${value.type}`);
@@ -226,37 +217,23 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         await this.process.stdin?.write(`${requestId}\n${command}\n${extra}`, 'utf-8');
     }
 
-    makeReplyPromise(): [number, Promise<NodeReply>] {
-        const requestId = this._nextRequestId++;
-        const promise = new Promise<NodeReply>((resolve, _reject) => {
-            // TODO: reject on close?
-            this._requestDispatch.set(requestId, resolve);
-        });
-        return [requestId, promise];
+
+    async requestRoot(): Promise<NodeReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply();
+        this.out.info(`requested root id=${requestId}`);
+        await this.postCommand(requestId, 'root');
+        const n = await replyPromise;
+        this.out.info(`god root id=${requestId} nodeId=${n.nodeId}`);
+        return n;
     }
 
-    requestRoot(): Promise<NodeReply> {
-        const [requestId, replyPromise] = this.makeReplyPromise();
-        const promise = async (): Promise<NodeReply> => {
-            this.out.info(`requested root id=${requestId}`);
-            await this.postCommand(requestId, 'root');
-            const n = await replyPromise;
-            this.out.info(`god root id=${requestId} nodeId=${n.nodeId}`);
-            return n;
-        }
-        return promise();
-    }
-
-    requestNode(nodeId: number): Promise<NodeReply> {
-        const [requestId, replyPromise] = this.makeReplyPromise();
-        const promise = async (): Promise<NodeReply> => {
-            this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
-            await this.postCommand(requestId, 'node', nodeId);
-            const n = await replyPromise;
-            this.out.info(`god node id=${requestId} nodeId=${n.nodeId}`);
-            return n;
-        }
-        return promise();
+    async requestNode(nodeId: number): Promise<NodeReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply();
+        this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
+        await this.postCommand(requestId, 'node', nodeId);
+        const n = await replyPromise;
+        this.out.info(`god node id=${requestId} nodeId=${n.nodeId}`);
+        return n;
     }
 
 }
