@@ -45,7 +45,6 @@ internal class ManyNodesMessage : Message
     public Node[] Nodes { get; set; }
 }
 
-
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(Message))]
 internal partial class MessageSerializerContext : JsonSerializerContext

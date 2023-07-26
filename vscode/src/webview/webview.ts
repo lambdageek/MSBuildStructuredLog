@@ -30,7 +30,7 @@ async function requestNode(nodeId: NodeId): Promise<void> {
     const [requestId, promise] = requestDispatch.promiseReply();
     postToVs({ type: 'node', nodeId, requestId });
     const node = await promise;
-    addNodeToMap(node);
+    addNodeToMap(node.node);
 }
 
 function paintNode(nodeId: NodeId, container: HTMLElement) {
@@ -78,9 +78,9 @@ document.addEventListener('DOMContentLoaded', () => {
         postToVs({ type: 'root', requestId });
         const node = await promise;
         if (rootId < 0) {
-            rootId = node.nodeId;
+            rootId = node.node.nodeId;
         }
-        addNodeToMap(node);
+        addNodeToMap(node.node);
         refresh();
     }
 

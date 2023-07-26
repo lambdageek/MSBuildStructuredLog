@@ -39,8 +39,9 @@ export interface CodeToWebviewReplyBase extends CodeToWebviewMessage {
     requestId: number;
 }
 
-export interface CodeToWebviewNodeReply extends CodeToWebviewReplyBase, Node {
+export interface CodeToWebviewNodeReply extends CodeToWebviewReplyBase {
     type: 'node';
+    node: Node;
 }
 
 export type CodeToWebviewReply =

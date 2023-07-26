@@ -138,7 +138,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 const reply: CodeToWebviewNodeReply = {
                     type: 'node',
                     requestId,
-                    ...node.node,
+                    node: node.node,
                 };
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(reply)}`);
                 this.postToWebview(webviewPanel.webview, reply);
@@ -151,7 +151,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 const reply: CodeToWebviewNodeReply = {
                     type: 'node',
                     requestId,
-                    ...node.node,
+                    node: node.node,
                 }
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(reply)}`);
                 this.postToWebview(webviewPanel.webview, reply);
