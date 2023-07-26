@@ -77,8 +77,7 @@ catch (Exception e)
     return 1;
 }
 
-void
-SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
+Node FormatNode(NodeMapper nodeIds, BaseNode node)
 {
     var id = nodeIds.nodeToId[node];
     int[] childIds = null;
@@ -94,16 +93,23 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
     }
     var summary = node.ToString();
     summary ??= $"[unprintable node of type {node.GetType()}]";
+    return new Node
+    {
+        NodeId = id,
+        NodeKind = node.GetType().FullName,
+        Summary = summary,
+        Children = childIds
+    };
+}
+
+void
+SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
+{
+    Node replyNode = FormatNode(nodeIds, node);
     var msg = new NodeMessage()
     {
         RequestId = requestId,
-        Node = new Node
-        {
-            NodeId = id,
-            NodeKind = node.GetType().FullName,
-            Summary = summary,
-            Children = childIds
-        }
+        Node = replyNode,
     };
     sender.SendNode(msg);
 }
