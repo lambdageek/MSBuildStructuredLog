@@ -27,6 +27,7 @@ internal class NodeMessage : Message
 {
     public int RequestId { get; set; }
     public string Summary { get; set; }
+    public string NodeKind { get; set; }
     public int NodeId { get; set; }
     public int[]? Children { get; set; }
 }

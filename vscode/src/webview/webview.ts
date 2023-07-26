@@ -46,7 +46,7 @@ function paintNode(nodeId: NodeId, container: HTMLElement) {
         button.textContent = `${nodeId}`;
         container.appendChild(button);
     } else {
-        container.innerHTML = `<p>${node.summary}</p>`;
+        container.innerHTML = `<p class='node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}</p>`;
         if (node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');

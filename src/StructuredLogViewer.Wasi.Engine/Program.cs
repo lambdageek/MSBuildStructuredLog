@@ -98,6 +98,7 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
     {
         RequestId = requestId,
         NodeId = id,
+        NodeKind = node.GetType().FullName,
         Summary = summary,
         Children = childIds
     };

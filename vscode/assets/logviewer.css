@@ -13,3 +13,89 @@ div#logview-root-node {
     margin: 10ex;
     white-space: pre-wrap;
 }
+span.nodeKind {
+    font-size: xx-small;
+    font-style: italic;
+    border: 2px dotted;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Build span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Build::before {
+    content: '⚙️ ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Folder span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Folder::before {
+    content: '📂 ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Property span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Property::before {
+    content: '🏷️ ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Project span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Project::before {
+    content: '🧰 ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Target span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Target::before {
+    content: '🎯 ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Task span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Task::before {
+    content: '📋 ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Message span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Message::before {
+    content: '📣 ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.TimedNode span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.TimedNode::before {
+    content: '⏳ ';
+    border: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Item span.nodeKind {
+    display: none;
+}
+
+p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Item::before {
+    content: '📄 ';
+    border: none;
+}
