@@ -2,7 +2,8 @@ import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
 import { assertNever } from '../../shared/assert-never';
-import { openMSBuildLogDocument, MSBuildLogDocument, WasmState, NodeReply } from './MSBuildLogDocument';
+import { WasmState } from './wasm/engine';
+import { openMSBuildLogDocument, MSBuildLogDocument, WasmToCodeNodeReply } from './MSBuildLogDocument';
 
 import { CodeToWebviewEvent, CodeToWebviewReply } from '../../shared/code-to-webview';
 
@@ -128,7 +129,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 const requestId = e.requestId;
                 const id = e.nodeId;
                 const node = await document.requestNode(id);
-                const clonedNode = JSON.parse(JSON.stringify(node)) as NodeReply;
+                const clonedNode = JSON.parse(JSON.stringify(node)) as WasmToCodeNodeReply;
                 clonedNode.requestId = requestId;
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(clonedNode)}`);
                 this.postToWebview(webviewPanel.webview, clonedNode);
@@ -145,7 +146,8 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
 
     postStateChange(webview: vscode.Webview, state: WasmState, disposable?: vscode.Disposable) {
         switch (state) {
-            case WasmState.STARTING:
+            case WasmState.LOADED:
+            case WasmState.STARTED:
                 /* ignore */
                 break;
             case WasmState.READY:

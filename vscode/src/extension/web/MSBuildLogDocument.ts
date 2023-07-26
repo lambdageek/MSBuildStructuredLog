@@ -1,99 +1,81 @@
 
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
-import { ProcessOptions, Wasm, WasmProcess } from '@vscode/wasm-wasi';
 
 import { NodeId, Node } from '../../shared/model';
 import { DisposableLike } from '../../shared/disposable';
 import { SyncRequestDispatch } from '../../shared/sync-request';
 
 import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
+import { loadWasm, WasmEngine, WasmState, WasmStateChangeEvent } from './wasm/engine';
+import * as wasiWasm from '@vscode/wasm-wasi';
+import { assertNever } from '../../shared/assert-never';
 
-let wasm: Wasm | null = null;
-
-export enum WasmState {
-    STARTING,
-    READY,
-    SHUTTING_DOWN,
-    TERMINATING,
-    EXIT_SUCCESS,
-    EXIT_FAILURE,
-}
-
-interface TypedMessage {
+interface WasmToCodeMessage {
     type: string;
 }
 
-export interface NodeReply extends Node {
+export interface WasmToCodeNodeReply extends WasmToCodeMessage, Node {
     type: 'node';
     requestId: number;
 }
 
-function isTypedMessage(x: unknown): x is TypedMessage {
-    return typeof (x) === 'object' && (x as TypedMessage).type !== undefined;
+function isWasmToCodeMessage(x: unknown): x is WasmToCodeMessage {
+    return typeof (x) === 'object' && (x as WasmToCodeMessage).type !== undefined;
 }
 
-
-export interface WasmStateChangeEvent {
-    state: WasmState;
+interface CodeToWasmCommandBase {
+    requestId: number;
+    command: string;
 }
+
+interface CodeToWasmRootCommand extends CodeToWasmCommandBase {
+    command: 'root';
+}
+
+interface CodeToWasmNodeCommand extends CodeToWasmCommandBase {
+    command: 'node';
+    nodeId: NodeId;
+}
+
+type CodeToWasmCommand =
+    CodeToWasmRootCommand
+    | CodeToWasmNodeCommand
+    ;
 
 export class MSBuildLogDocument implements vscode.CustomDocument {
-    _state: WasmState;
     disposables: DisposableLike[];
-    readonly _requestDispatch: SyncRequestDispatch<NodeReply>;
-    readonly stateChangeEmitter: vscode.EventEmitter<WasmStateChangeEvent>;
-    constructor(readonly uri: Uri, readonly process: WasmProcess, readonly out: vscode.LogOutputChannel) {
-        this._state = WasmState.STARTING;
+    readonly _requestDispatch: SyncRequestDispatch<WasmToCodeNodeReply>;
+    constructor(readonly uri: Uri, readonly _engine: WasmEngine, readonly out: vscode.LogOutputChannel) {
         this.disposables = [];
-        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<NodeReply>());
-        this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<WasmStateChangeEvent>());
-        this.runProcess();
-        this.disposables.push(process.stdout!.onData(jsonFromChunks((value) => this.gotStdOut(value))));
-        this.disposables.push(process.stderr!.onData(stringFromChunks((value) => this.gotStdErr(value))));
+        this.disposables.push(this._engine);
+        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<WasmToCodeNodeReply>());
+        this._engine.runProcess();
+        this.disposables.push(this._engine.process.stdout!.onData(jsonFromChunks((value) => this.gotStdOut(value))));
+        this.disposables.push(this._engine.process.stderr!.onData(stringFromChunks((value) => this.gotStdErr(value))));
     }
 
     dispose() {
-        this.process.terminate();
-        this._state = WasmState.TERMINATING;
         this.disposables.forEach(d => d.dispose());
     }
 
-    runProcess() {
-        this.process.run()
-            .then((exitCode) => {
-                switch (exitCode) {
-                    case 0:
-                        this._state = WasmState.EXIT_SUCCESS;
-                        break;
-                    default:
-                        this.out.warn(`wasm process for ${this.uri} returned with exit code ${exitCode}`)
-                        this._state = WasmState.EXIT_FAILURE;
-                        break;
-                }
-            })
-            .catch((reason) => {
-                this.out.warn(`wasm process for ${this.uri} threw ${reason}`);
-                this._state = WasmState.EXIT_FAILURE;
-            });
-    }
+    get state(): WasmState { return this._engine.state; }
+    isLive(): boolean { return this._engine.isLive(); }
 
     gotStdOut(value: unknown) {
         this.out.info(`received from wasm process: ${value}`);
-        if (isTypedMessage(value)) {
+        if (isWasmToCodeMessage(value)) {
             switch (value.type) {
                 case 'ready':
                     this.out.info(`wasm process signalled Ready`);
-                    this._state = WasmState.READY;
-                    this.stateChangeEmitter.fire({ state: this.state });
+                    this._engine.applicationChangedState(WasmState.READY);
                     break;
                 case 'done':
                     this.out.info(`wasm process signalled Done`);
-                    this._state = WasmState.SHUTTING_DOWN;
-                    this.stateChangeEmitter.fire({ state: this.state });
+                    this._engine.applicationChangedState(WasmState.SHUTTING_DOWN);
                     break;
                 case 'node':
-                    const nodeReply = value as NodeReply;
+                    const nodeReply = value as WasmToCodeNodeReply;
                     const requestId = nodeReply.requestId;
                     this._requestDispatch.satisfy(requestId, nodeReply);
                     break;
@@ -107,44 +89,39 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         this.out.error(value);
     }
 
-    get onStateChange(): vscode.Event<WasmStateChangeEvent> { return this.stateChangeEmitter.event; }
+    get onStateChange(): vscode.Event<WasmStateChangeEvent> { return this._engine.onStateChange; }
 
-    get state(): WasmState { return this._state; }
-
-    isLive(): boolean {
-        switch (this.state) {
-            case WasmState.SHUTTING_DOWN:
-            case WasmState.TERMINATING:
-            case WasmState.EXIT_SUCCESS:
-            case WasmState.EXIT_FAILURE:
-                return false;
+    async postCommand(c: CodeToWasmCommand): Promise<void> {
+        let requestId = c.requestId;
+        let command = c.command;
+        let extra: string = '';
+        switch (c.command) {
+            case 'root':
+                break;
+            case 'node':
+                extra = `${c.nodeId}\n`;
+                break;
             default:
-                return true;
+                assertNever(c);
+                break;
         }
-    }
-
-    async postCommand(requestId: number, command: string, extraArg?: number | string): Promise<void> {
-        let extra = "";
-        if (extraArg !== undefined) {
-            extra = `${extraArg}\n`;
-        }
-        await this.process.stdin?.write(`${requestId}\n${command}\n${extra}`, 'utf-8');
+        await this._engine.process.stdin?.write(`${requestId}\n${command}\n${extra}`, 'utf-8');
     }
 
 
-    async requestRoot(): Promise<NodeReply> {
+    async requestRoot(): Promise<WasmToCodeNodeReply> {
         const [requestId, replyPromise] = this._requestDispatch.promiseReply();
         this.out.info(`requested root id=${requestId}`);
-        await this.postCommand(requestId, 'root');
+        await this.postCommand({ requestId, command: 'root' });
         const n = await replyPromise;
         this.out.info(`god root id=${requestId} nodeId=${n.nodeId}`);
         return n;
     }
 
-    async requestNode(nodeId: NodeId): Promise<NodeReply> {
+    async requestNode(nodeId: NodeId): Promise<WasmToCodeNodeReply> {
         const [requestId, replyPromise] = this._requestDispatch.promiseReply();
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
-        await this.postCommand(requestId, 'node', nodeId);
+        await this.postCommand({ requestId, command: 'node', nodeId });
         const n = await replyPromise;
         this.out.info(`got node requestId=${requestId} nodeId=${n.nodeId}`);
         return n;
@@ -154,18 +131,15 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
 
 export async function openMSBuildLogDocument(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<MSBuildLogDocument> {
     out.info(`opening msbuild log ${uri}`);
-    if (!wasm) {
-        wasm = await Wasm.load();
-    }
+    const wasm = await loadWasm();
     await polyfillStreams();
-    //try {
     const rootFileSystem = await wasm.createRootFileSystem([
         { kind: 'workspaceFolder' }
     ]);
     const pipeIn = wasm.createWritable();
     const pipeOut = wasm.createReadable();
     const pipeErr = wasm.createReadable();
-    const options: ProcessOptions = {
+    const options: wasiWasm.ProcessOptions = {
         args: ["interactive", uri],
         stdio: {
             in: { 'kind': 'pipeIn', pipe: pipeIn },
@@ -175,15 +149,12 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
         rootFileSystem
     };
     const path = Uri.joinPath(context.extensionUri, 'dist', 'StructuredLogViewer.Wasi.Engine.wasm');
-    const wasiWasm = await vscode.workspace.fs.readFile(path);
-    const module = await WebAssembly.compile(wasiWasm);
+    const moduleBytes = await vscode.workspace.fs.readFile(path);
+    const module = await WebAssembly.compile(moduleBytes);
     out.info('creating process')
     const process = await wasm.createProcess('StructuredLogViewer.Wasi.Engine', module, options);
+    const engine = new WasmEngine(process, out);
     out.info('process created')
-    return new MSBuildLogDocument(uri, process, out);
-    //} catch (error) {
-    //    out.error("" + error);
-    //    return null as any; // FIXME: is there a nicer way to abort CustomEditor openCustomDocument
-    //}
+    return new MSBuildLogDocument(uri, engine, out);
 }
 
