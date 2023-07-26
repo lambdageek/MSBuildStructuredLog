@@ -15,9 +15,10 @@ interface WasmToCodeMessage {
     type: string;
 }
 
-export interface WasmToCodeNodeReply extends WasmToCodeMessage, Node {
+export interface WasmToCodeNodeReply extends WasmToCodeMessage {
     type: 'node';
     requestId: number;
+    node: Node;
 }
 
 function isWasmToCodeMessage(x: unknown): x is WasmToCodeMessage {
@@ -114,7 +115,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         this.out.info(`requested root id=${requestId}`);
         await this.postCommand({ requestId, command: 'root' });
         const n = await replyPromise;
-        this.out.info(`god root id=${requestId} nodeId=${n.nodeId}`);
+        this.out.info(`god root id=${requestId} nodeId=${n.node.nodeId}`);
         return n;
     }
 
@@ -123,7 +124,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
         await this.postCommand({ requestId, command: 'node', nodeId });
         const n = await replyPromise;
-        this.out.info(`got node requestId=${requestId} nodeId=${n.nodeId}`);
+        this.out.info(`got node requestId=${requestId} nodeId=${n.node.nodeId}`);
         return n;
     }
 

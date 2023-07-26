@@ -97,10 +97,13 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
     var msg = new NodeMessage()
     {
         RequestId = requestId,
-        NodeId = id,
-        NodeKind = node.GetType().FullName,
-        Summary = summary,
-        Children = childIds
+        Node = new Node
+        {
+            NodeId = id,
+            NodeKind = node.GetType().FullName,
+            Summary = summary,
+            Children = childIds
+        }
     };
     sender.SendNode(msg);
 }

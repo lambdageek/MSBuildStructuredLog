@@ -7,6 +7,7 @@ namespace StructuredLogViewer.Wasi.Engine;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(NodeMessage), typeDiscriminator: "node")]
+[JsonDerivedType(typeof(ManyNodesMessage), typeDiscriminator: "manyNodes")]
 [JsonDerivedType(typeof(ReadyMessage), typeDiscriminator: "ready")]
 [JsonDerivedType(typeof(DoneMessage), typeDiscriminator: "done")]
 internal class Message
@@ -23,14 +24,27 @@ internal class DoneMessage : Message
     public static DoneMessage Default = new();
 }
 
-internal class NodeMessage : Message
+internal class Node
 {
-    public int RequestId { get; set; }
     public string Summary { get; set; }
     public string NodeKind { get; set; }
     public int NodeId { get; set; }
     public int[]? Children { get; set; }
+
 }
+
+internal class NodeMessage : Message
+{
+    public int RequestId { get; set; }
+    public Node Node { get; set; }
+}
+
+internal class ManyNodesMessage : Message
+{
+    public int RequestId { get; set; }
+    public Node[] Nodes { get; set; }
+}
+
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(Message))]
@@ -57,6 +71,11 @@ internal class Sender
     }
 
     public void SendNode(NodeMessage message)
+    {
+        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+    }
+
+    public void SendNodes(ManyNodesMessage message)
     {
         JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
     }

@@ -3,9 +3,9 @@ import * as vscode from 'vscode';
 
 import { assertNever } from '../../shared/assert-never';
 import { WasmState } from './wasm/engine';
-import { openMSBuildLogDocument, MSBuildLogDocument, WasmToCodeNodeReply } from './MSBuildLogDocument';
+import { openMSBuildLogDocument, MSBuildLogDocument } from './MSBuildLogDocument';
 
-import { CodeToWebviewEvent, CodeToWebviewReply } from '../../shared/code-to-webview';
+import { CodeToWebviewEvent, CodeToWebviewNodeReply, CodeToWebviewReply } from '../../shared/code-to-webview';
 
 import { isWebviewToCodeMessage, WebviewToCodeRequest, WebviewToCodeReply } from '../../shared/webview-to-code';
 
@@ -135,20 +135,26 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             case 'root': {
                 const requestId = e.requestId;
                 const node = await document.requestRoot();
-                const clonedNode = JSON.parse(JSON.stringify(node));
-                clonedNode.requestId = requestId;
-                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(clonedNode)}`);
-                this.postToWebview(webviewPanel.webview, clonedNode);
+                const reply: CodeToWebviewNodeReply = {
+                    type: 'node',
+                    requestId,
+                    ...node.node,
+                };
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(reply)}`);
+                this.postToWebview(webviewPanel.webview, reply);
                 break;
             }
             case 'node': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
                 const node = await document.requestNode(id);
-                const clonedNode = JSON.parse(JSON.stringify(node)) as WasmToCodeNodeReply;
-                clonedNode.requestId = requestId;
-                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(clonedNode)}`);
-                this.postToWebview(webviewPanel.webview, clonedNode);
+                const reply: CodeToWebviewNodeReply = {
+                    type: 'node',
+                    requestId,
+                    ...node.node,
+                }
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(reply)}`);
+                this.postToWebview(webviewPanel.webview, reply);
                 break;
             }
             default:
