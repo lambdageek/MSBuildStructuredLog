@@ -2,6 +2,10 @@ export interface WebviewToCodeMessage {
     type: string;
 }
 
+export function isWebviewToCodeMessage(x: unknown): x is WebviewToCodeMessage {
+    return (typeof (x) === 'object') && (x as WebviewToCodeMessage).type !== undefined;
+}
+
 export interface WebviewToCodeRequestBase extends WebviewToCodeMessage {
     requestId: number;
 }

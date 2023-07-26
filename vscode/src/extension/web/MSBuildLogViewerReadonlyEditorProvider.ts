@@ -2,34 +2,11 @@ import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 import { openMSBuildLogDocument, MSBuildLogDocument, WasmState } from './MSBuildLogDocument';
 
-interface WebviewResponse {
-    type: string;
+import { isWebviewToCodeMessage, WebviewToCodeRequest, WebviewToCodeReply } from '../../shared/webview-to-code';
+
+function assertNever(x: never): asserts x is never {
+    return x;
 }
-
-interface WebviewNodeRequest extends WebviewResponse {
-    type: 'node';
-    requestId: number;
-    nodeId: number;
-}
-
-interface WebviewRootRequest extends WebviewResponse {
-    type: 'root';
-    requestId: number;
-}
-
-type WebviewRequest = WebviewNodeRequest | WebviewRootRequest;
-
-function assertNever(_x: never): never {
-    throw Error("should not happen");
-}
-
-function isWebviewResponse(x: unknown): x is WebviewResponse {
-    return (typeof (x) === 'object') && (x as WebviewResponse).type !== undefined;
-}
-
-// function isWebviewRequest(x: unknown): x is WebviewRequest {
-//    return isWebviewResponse(x) && (x as WebviewRequest).requestId !== undefined;
-// }
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
@@ -64,11 +41,11 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             enableScripts: true,
             /*enableCommandUris: true*/
         };
-        const subscription = webviewPanel.webview.onDidReceiveMessage((e) => {
+        const subscription = webviewPanel.webview.onDidReceiveMessage((e: WebviewToCodeReply) => {
             if (e.type === 'ready') {
                 MSBuildLogViewerReadonlyEditorProvider.out.info('got ready event back from webview');
                 subscription.dispose();
-                webviewPanel.webview.onDidReceiveMessage((e) => this.onMessage(webviewPanel, document, e));
+                webviewPanel.webview.onDidReceiveMessage((e: WebviewToCodeRequest | WebviewToCodeReply) => this.onMessage(webviewPanel, document, e));
                 webviewPanel.webview.postMessage({ type: 'init', fsPath: document.uri.fsPath });
             }
         });
@@ -102,7 +79,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
             <title>MSBuild Log Viewer</title>
         </head>
         <body>
-            <div id="main-app">Starting bilog viewer for ${documentFilePath}...</div>
+            <div id="main-app">Starting binlog viewer for ${documentFilePath}...</div>
             <div id="logview-root-node"></div>
             <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
@@ -115,25 +92,27 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         return webview.asWebviewUri(Uri.joinPath(this.context.extensionUri, kind, asset));
     }
 
-    onMessage(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: unknown) {
-        if (isWebviewResponse(e)) {
+    onMessage(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewToCodeRequest | WebviewToCodeReply) {
+        if (isWebviewToCodeMessage(e)) {
             switch (e.type) {
                 case 'ready':
                     this.postStateChange(webviewPanel.webview, document.state);
                     if (document.isLive()) {
                         const stateChangeDisposable = document.onStateChange((ev) => this.postStateChange(webviewPanel.webview, ev.state, stateChangeDisposable));
                     }
+                    break;
                 case 'root':
                 case 'node':
-                    this.onNodeRequest(webviewPanel, document, e as WebviewRequest);
+                    this.onNodeRequest(webviewPanel, document, e);
                     break;
                 default:
-                    MSBuildLogViewerReadonlyEditorProvider.out.warn(`unexpected response from webview ${e.type}`)
+                    MSBuildLogViewerReadonlyEditorProvider.out.warn(`unexpected response from webview ${(e as any).type}`)
+                    assertNever(e);
             }
         }
     }
 
-    async onNodeRequest(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewRequest): Promise<void> {
+    async onNodeRequest(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewToCodeRequest): Promise<void> {
         switch (e.type) {
             case 'root': {
                 const requestId = e.requestId;
@@ -161,6 +140,9 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
 
     postStateChange(webview: vscode.Webview, state: WasmState, disposable?: vscode.Disposable) {
         switch (state) {
+            case WasmState.STARTING:
+                /* ignore */
+                break;
             case WasmState.READY:
                 webview.postMessage({ type: 'ready' });
                 break;
@@ -175,7 +157,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 disposable?.dispose(); // unsubscribe
                 break;
             default:
-                /* ignore */
+                assertNever(state);
                 break;
         }
     }
