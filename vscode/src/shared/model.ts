@@ -1,8 +1,10 @@
 export interface LogModel {
     rootNode: Node;
 }
+export type NodeId = number;
 
 export interface Node {
-    id: number;
-    children: Node[];
+    nodeId: NodeId;
+    summary: string;
+    children?: [NodeId];
 }

@@ -3,8 +3,9 @@ import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 import { ProcessOptions, Wasm, WasmProcess } from '@vscode/wasm-wasi';
 
-import { DisposableLike } from "../../shared/disposable";
-import { SyncRequestDispatch } from "../../shared/sync-request";
+import { NodeId, Node } from '../../shared/model';
+import { DisposableLike } from '../../shared/disposable';
+import { SyncRequestDispatch } from '../../shared/sync-request';
 
 // export * from 'web-streams-polyfill';
 
@@ -42,14 +43,9 @@ interface TypedMessage {
     type: string;
 }
 
-type NodeId = number;
-
-interface NodeReply {
+export interface NodeReply extends Node {
     type: 'node';
     requestId: number;
-    nodeId: NodeId;
-    summary: string;
-    children?: [NodeId];
 }
 
 function isTypedMessage(x: unknown): x is TypedMessage {
@@ -227,7 +223,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         return n;
     }
 
-    async requestNode(nodeId: number): Promise<NodeReply> {
+    async requestNode(nodeId: NodeId): Promise<NodeReply> {
         const [requestId, replyPromise] = this._requestDispatch.promiseReply();
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
         await this.postCommand(requestId, 'node', nodeId);

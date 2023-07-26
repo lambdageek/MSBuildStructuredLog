@@ -4,6 +4,12 @@
 
 import { SyncRequestDispatch } from '../shared/sync-request';
 
+import { NodeId, Node } from '../shared/model';
+
+import { assertNever } from '../shared/assert-never';
+
+import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply, CodeToWebviewNodeReply } from '../shared/code-to-webview';
+
 import * as req from '../shared/webview-to-code';
 
 const vscode = acquireVsCodeApi<void>();
@@ -12,22 +18,13 @@ function postToVs(message: req.WebviewToCodeRequest | req.WebviewToCodeReply) {
     vscode.postMessage(message);
 }
 
-type NodeId = number;
-interface NodeReply {
-    type: 'node';
-    requestId: number;
-    nodeId: NodeId;
-    summary: string;
-    children?: [NodeId];
-}
+const nodeMap = new Map<NodeId, Node>();
 
-const nodeMap = new Map<NodeId, NodeReply>();
-
-function addNodeToMap(node: NodeReply) {
+function addNodeToMap(node: Node) {
     nodeMap.set(node.nodeId, node);
 }
 
-const requestDispatch = new SyncRequestDispatch<NodeReply>();
+const requestDispatch = new SyncRequestDispatch<CodeToWebviewNodeReply>();
 
 async function requestNode(nodeId: NodeId): Promise<void> {
     const [requestId, promise] = requestDispatch.promiseReply();
@@ -36,7 +33,7 @@ async function requestNode(nodeId: NodeId): Promise<void> {
     addNodeToMap(node);
 }
 
-function paintNode(nodeId: number, container: HTMLElement) {
+function paintNode(nodeId: NodeId, container: HTMLElement) {
     const node = nodeMap.get(nodeId);
     if (node === undefined) {
         const button = document.createElement('button');
@@ -87,37 +84,40 @@ document.addEventListener('DOMContentLoaded', () => {
         refresh();
     }
 
-    function messageHandler(ev: MessageEvent): void {
-        switch (ev.data.type) {
-            case 'init': {
-                binlogFsPath = ev.data.fsPath;
-                mainAppDiv.innerHTML = `<p>Loading ${binlogFsPath}</p>`;
-                postToVs({ type: 'ready' });
-                break;
+    function messageHandler(ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void {
+        if (isCodeToWebviewMessage(ev.data)) {
+            switch (ev.data.type) {
+                case 'init': {
+                    binlogFsPath = ev.data.fsPath;
+                    mainAppDiv.innerHTML = `<p>Loading ${binlogFsPath}</p>`;
+                    postToVs({ type: 'ready' });
+                    break;
+                }
+                case 'ready': {
+                    mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
+                    queueMicrotask(() => requestRoot());
+                    break;
+                }
+                case 'done': {
+                    mainAppDiv.innerHTML = "<p>StructuredLogViewer.Wasi.Engine finished</p>";
+                    window.removeEventListener('message', messageHandler);
+                    break;
+                }
+                case 'faulted': {
+                    mainAppDiv.innerHTML = `<p class="error">StructuredLogViewer.Wasi.Engine faulted</p>`;
+                    window.removeEventListener('message', messageHandler);
+                    break;
+                }
+                case 'node': {
+                    const node = ev.data;
+                    requestDispatch.satisfy(node.requestId, node);
+                    break;
+                }
+                default:
+                    assertNever(ev.data);
+                    mainAppDiv.innerHTML = `<p class="error">Got a ${(ev.data as any).type} unexpectedly</p>`;
+                    break;
             }
-            case 'ready': {
-                mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
-                queueMicrotask(() => requestRoot());
-                break;
-            }
-            case 'done': {
-                mainAppDiv.innerHTML = "<p>StructuredLogViewer.Wasi.Engine finished</p>";
-                window.removeEventListener('message', messageHandler);
-                break;
-            }
-            case 'faulted': {
-                mainAppDiv.innerHTML = `<p class="error">StructuredLogViewer.Wasi.Engine faulted</p>`;
-                window.removeEventListener('message', messageHandler);
-                break;
-            }
-            case 'node': {
-                const node = ev.data as NodeReply;
-                requestDispatch.satisfy(node.requestId, node);
-                break;
-            }
-            default:
-                mainAppDiv.innerHTML = `<p class="error">Got a ${ev.data} unexpectedly</p>`;
-                break;
         }
     }
 

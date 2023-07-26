@@ -1,12 +1,13 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
-import { openMSBuildLogDocument, MSBuildLogDocument, WasmState } from './MSBuildLogDocument';
+
+import { assertNever } from '../../shared/assert-never';
+import { openMSBuildLogDocument, MSBuildLogDocument, WasmState, NodeReply } from './MSBuildLogDocument';
+
+import { CodeToWebviewEvent, CodeToWebviewReply } from '../../shared/code-to-webview';
 
 import { isWebviewToCodeMessage, WebviewToCodeRequest, WebviewToCodeReply } from '../../shared/webview-to-code';
 
-function assertNever(x: never): asserts x is never {
-    return x;
-}
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
@@ -46,7 +47,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 MSBuildLogViewerReadonlyEditorProvider.out.info('got ready event back from webview');
                 subscription.dispose();
                 webviewPanel.webview.onDidReceiveMessage((e: WebviewToCodeRequest | WebviewToCodeReply) => this.onMessage(webviewPanel, document, e));
-                webviewPanel.webview.postMessage({ type: 'init', fsPath: document.uri.fsPath });
+                this.postToWebview(webviewPanel.webview, { type: 'init', fsPath: document.uri.fsPath });
             }
         });
         webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview, document.uri.fsPath);
@@ -120,22 +121,26 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 const clonedNode = JSON.parse(JSON.stringify(node));
                 clonedNode.requestId = requestId;
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(clonedNode)}`);
-                webviewPanel.webview.postMessage(clonedNode);
+                this.postToWebview(webviewPanel.webview, clonedNode);
                 break;
             }
             case 'node': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
                 const node = await document.requestNode(id);
-                const clonedNode = JSON.parse(JSON.stringify(node));
+                const clonedNode = JSON.parse(JSON.stringify(node)) as NodeReply;
                 clonedNode.requestId = requestId;
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(clonedNode)}`);
-                webviewPanel.webview.postMessage(clonedNode);
+                this.postToWebview(webviewPanel.webview, clonedNode);
                 break;
             }
             default:
                 assertNever(e);
         }
+    }
+
+    postToWebview(webview: vscode.Webview, message: CodeToWebviewEvent | CodeToWebviewReply) {
+        webview.postMessage(message);
     }
 
     postStateChange(webview: vscode.Webview, state: WasmState, disposable?: vscode.Disposable) {
@@ -144,16 +149,16 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 /* ignore */
                 break;
             case WasmState.READY:
-                webview.postMessage({ type: 'ready' });
+                this.postToWebview(webview, { type: 'ready' });
                 break;
             case WasmState.SHUTTING_DOWN:
             case WasmState.TERMINATING:
             case WasmState.EXIT_SUCCESS:
-                webview.postMessage({ type: 'done' });
+                this.postToWebview(webview, { type: 'done' });
                 disposable?.dispose(); // unsubscribe
                 break;
             case WasmState.EXIT_FAILURE:
-                webview.postMessage({ type: 'faulted' });
+                this.postToWebview(webview, { type: 'faulted' });
                 disposable?.dispose(); // unsubscribe
                 break;
             default:
