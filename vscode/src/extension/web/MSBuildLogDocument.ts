@@ -232,7 +232,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
         await this.postCommand(requestId, 'node', nodeId);
         const n = await replyPromise;
-        this.out.info(`god node id=${requestId} nodeId=${n.nodeId}`);
+        this.out.info(`got node requestId=${requestId} nodeId=${n.nodeId}`);
         return n;
     }
 

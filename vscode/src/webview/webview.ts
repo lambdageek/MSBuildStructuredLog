@@ -2,12 +2,14 @@
 
 // import type { LogModel } from '../shared/model';
 
+import { SyncRequestDispatch } from '../shared/sync-request';
+
 const vscode = acquireVsCodeApi<void>();
 
 type NodeId = number;
 interface NodeReply {
     type: 'node';
-    // requestId: number;
+    requestId: number;
     nodeId: NodeId;
     summary: string;
     children?: [NodeId];
@@ -15,8 +17,17 @@ interface NodeReply {
 
 const nodeMap = new Map<NodeId, NodeReply>();
 
-function requestNode(nodeId: NodeId) {
-    vscode.postMessage({ type: 'node', nodeId });
+function addNodeToMap(node: NodeReply) {
+    nodeMap.set(node.nodeId, node);
+}
+
+const requestDispatch = new SyncRequestDispatch<NodeReply>();
+
+async function requestNode(nodeId: NodeId): Promise<void> {
+    const [requestId, promise] = requestDispatch.promiseReply();
+    vscode.postMessage({ type: 'node', nodeId, requestId });
+    const node = await promise;
+    addNodeToMap(node);
 }
 
 function paintNode(nodeId: number, container: HTMLElement) {
@@ -24,7 +35,11 @@ function paintNode(nodeId: number, container: HTMLElement) {
     if (node === undefined) {
         const button = document.createElement('button');
         button.setAttribute('type', 'button');
-        button.addEventListener('click', () => { requestNode(nodeId); });
+        button.addEventListener('click', async () => {
+            await requestNode(nodeId);
+            container.removeChild(button);
+            paintNode(nodeId, container);
+        });
         button.textContent = `${nodeId}`;
         container.appendChild(button);
     } else {
@@ -41,60 +56,63 @@ function paintNode(nodeId: number, container: HTMLElement) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const div = document.getElementById('main-app') as HTMLDivElement;
+    const mainAppDiv = document.getElementById('main-app') as HTMLDivElement;
+    const rootDiv = document.getElementById('logview-root-node') as HTMLDivElement;
     let rootId = -1;
-    if (!div)
+    if (!mainAppDiv || !rootDiv)
         throw new Error("no main-app!");
 
     function refresh() {
         if (rootId != -1) {
-            div.setAttribute('class', 'treeNode');
-            paintNode(rootId, div);
+            rootDiv.setAttribute('class', 'treeNode');
+            paintNode(rootId, rootDiv);
         }
     }
 
-    function addNodeToMap(node: NodeReply) {
-        nodeMap.set(node.nodeId, node);
+    async function requestRoot(): Promise<void> {
+        const [requestId, promise] = requestDispatch.promiseReply();
+        vscode.postMessage({ type: 'root', requestId });
+        const node = await promise;
+        if (rootId < 0) {
+            rootId = node.nodeId;
+        }
+        addNodeToMap(node);
+        refresh();
     }
 
     function messageHandler(ev: MessageEvent): void {
         switch (ev.data.type) {
             case 'init': {
-                div.innerHTML = "<h2>Initialized!!</h2>";
+                mainAppDiv.innerHTML = "<h2>Initialized!!</h2>";
                 vscode.postMessage({ type: 'ready' });
                 break;
             }
             case 'ready': {
-                div.innerHTML = "<h2>StructuredLogViewer.Wasi.Engine ready</h2>";
-                vscode.postMessage({ type: 'root' });
+                mainAppDiv.innerHTML = "<h2>StructuredLogViewer.Wasi.Engine ready</h2>";
+                queueMicrotask(() => requestRoot());
                 break;
             }
             case 'done': {
-                div.innerHTML = "<div>StructuredLogViewer.Wasi.Engine finished</div>";
+                mainAppDiv.innerHTML = "<div>StructuredLogViewer.Wasi.Engine finished</div>";
                 window.removeEventListener('message', messageHandler);
                 break;
             }
             case 'faulted': {
-                div.innerHTML = `<h2 class="error">StructuredLogViewer.Wasi.Engine faulted</h2>`;
+                mainAppDiv.innerHTML = `<h2 class="error">StructuredLogViewer.Wasi.Engine faulted</h2>`;
                 window.removeEventListener('message', messageHandler);
                 break;
             }
             case 'node': {
-                div.innerHTML = `<h2>Got a node</h2>`;
+                mainAppDiv.innerHTML = `<h2>Got a node</h2>`;
                 const node = ev.data as NodeReply;
-                if (rootId < 0) {
-                    rootId = node.nodeId;
-                }
-                addNodeToMap(node);
-                refresh();
+                requestDispatch.satisfy(node.requestId, node);
                 break;
             }
             default:
-                div.innerHTML = `<h2>Got a ${ev.data} unexpectedly`;
+                mainAppDiv.innerHTML = `<h2>Got a ${ev.data} unexpectedly`;
                 break;
         }
     }
-
 
     window.addEventListener('message', messageHandler);
     vscode.postMessage({ type: 'ready' });

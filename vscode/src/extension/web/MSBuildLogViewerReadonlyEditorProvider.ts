@@ -6,13 +6,30 @@ interface WebviewResponse {
     type: string;
 }
 
+interface WebviewNodeRequest extends WebviewResponse {
+    type: 'node';
+    requestId: number;
+    nodeId: number;
+}
+
+interface WebviewRootRequest extends WebviewResponse {
+    type: 'root';
+    requestId: number;
+}
+
+type WebviewRequest = WebviewNodeRequest | WebviewRootRequest;
+
 function assertNever(_x: never): never {
     throw Error("should not happen");
 }
 
 function isWebviewResponse(x: unknown): x is WebviewResponse {
-    return (typeof (x) === 'object') && (x as WebviewResponse).type !== 'undefined';
+    return (typeof (x) === 'object') && (x as WebviewResponse).type !== undefined;
 }
+
+// function isWebviewRequest(x: unknown): x is WebviewRequest {
+//    return isWebviewResponse(x) && (x as WebviewRequest).requestId !== undefined;
+// }
 
 export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDocument> {
     static out: vscode.LogOutputChannel;
@@ -87,6 +104,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         <body>
             <h1>Hello</h1>
             <div id="main-app"></div>
+            <div id="logview-root-node"></div>
             <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
         </html>`;
@@ -108,7 +126,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                     }
                 case 'root':
                 case 'node':
-                    this.onNodeRequest(webviewPanel, document, e as any);
+                    this.onNodeRequest(webviewPanel, document, e as WebviewRequest);
                     break;
                 default:
                     MSBuildLogViewerReadonlyEditorProvider.out.warn(`unexpected response from webview ${e.type}`)
@@ -116,23 +134,29 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
         }
     }
 
-    async onNodeRequest(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewResponse & { type: 'root' | 'node' }): Promise<void> {
+    async onNodeRequest(webviewPanel: vscode.WebviewPanel, document: MSBuildLogDocument, e: WebviewRequest): Promise<void> {
         switch (e.type) {
             case 'root': {
+                const requestId = e.requestId;
                 const node = await document.requestRoot();
-                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(node)}`);
-                webviewPanel.webview.postMessage(JSON.parse(JSON.stringify(node)));
+                const clonedNode = JSON.parse(JSON.stringify(node));
+                clonedNode.requestId = requestId;
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting root to webview ${JSON.stringify(clonedNode)}`);
+                webviewPanel.webview.postMessage(clonedNode);
                 break;
             }
             case 'node': {
-                const id = (e as any).nodeId;
+                const requestId = e.requestId;
+                const id = e.nodeId;
                 const node = await document.requestNode(id);
-                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(node)}`);
-                webviewPanel.webview.postMessage(JSON.parse(JSON.stringify(node)));
+                const clonedNode = JSON.parse(JSON.stringify(node));
+                clonedNode.requestId = requestId;
+                MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(clonedNode)}`);
+                webviewPanel.webview.postMessage(clonedNode);
                 break;
             }
             default:
-                assertNever(e.type);
+                assertNever(e);
         }
     }
 
