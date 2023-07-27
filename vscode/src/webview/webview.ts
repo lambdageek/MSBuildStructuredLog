@@ -8,7 +8,7 @@ import { NodeId, Node } from '../shared/model';
 
 import { assertNever } from '../shared/assert-never';
 
-import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply, CodeToWebviewNodeReply } from '../shared/code-to-webview';
+import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply } from '../shared/code-to-webview';
 
 import * as req from '../shared/webview-to-code';
 
@@ -24,13 +24,22 @@ function addNodeToMap(node: Node) {
     nodeMap.set(node.nodeId, node);
 }
 
-const requestDispatch = new SyncRequestDispatch<CodeToWebviewNodeReply>();
+const requestDispatch = new SyncRequestDispatch<CodeToWebviewReply>();
 
-async function requestNode(nodeId: NodeId): Promise<void> {
-    const [requestId, promise] = requestDispatch.promiseReply();
-    postToVs({ type: 'node', nodeId, requestId });
-    const node = await promise;
-    addNodeToMap(node.node);
+// async function requestNode(nodeId: NodeId): Promise<void> {
+//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
+//     postToVs({ type: 'node', nodeId, requestId });
+//     const node = await promise;
+//     addNodeToMap(node.node);
+// }
+
+async function requestManyNodes(nodeId: NodeId, count: number = 50): Promise<void> {
+    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
+    postToVs({ type: 'manyNodes', nodeId, count, requestId });
+    const nodes = await promise;
+    for (const node of nodes.nodes) {
+        addNodeToMap(node);
+    }
 }
 
 function paintNode(nodeId: NodeId, container: HTMLElement) {
@@ -39,7 +48,7 @@ function paintNode(nodeId: NodeId, container: HTMLElement) {
         const button = document.createElement('button');
         button.setAttribute('type', 'button');
         button.addEventListener('click', async () => {
-            await requestNode(nodeId);
+            await requestManyNodes(nodeId);
             container.removeChild(button);
             paintNode(nodeId, container);
         });
@@ -74,13 +83,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function requestRoot(): Promise<void> {
-        const [requestId, promise] = requestDispatch.promiseReply();
+        const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
         postToVs({ type: 'root', requestId });
         const node = await promise;
         if (rootId < 0) {
             rootId = node.node.nodeId;
         }
         addNodeToMap(node.node);
+        await requestManyNodes(rootId);
         refresh();
     }
 
@@ -108,11 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.removeEventListener('message', messageHandler);
                     break;
                 }
-                case 'node': {
-                    const node = ev.data;
-                    requestDispatch.satisfy(node.requestId, node);
-                    break;
-                }
+                case 'node':
+                case 'manyNodes':
+                    {
+                        const reply = ev.data;
+                        requestDispatch.satisfy(reply.requestId, reply);
+                        break;
+                    }
                 default:
                     assertNever(ev.data);
                     mainAppDiv.innerHTML = `<p class="error">Got a ${(ev.data as any).type} unexpectedly</p>`;

@@ -21,6 +21,17 @@ export interface WasmToCodeNodeReply extends WasmToCodeMessage {
     node: Node;
 }
 
+export interface WasmToCodeManyNodesReply extends WasmToCodeMessage {
+    type: 'manyNodes';
+    requestId: number;
+    nodes: Node[];
+}
+
+export type WasmToCodeReply =
+    WasmToCodeNodeReply
+    | WasmToCodeManyNodesReply
+    ;
+
 function isWasmToCodeMessage(x: unknown): x is WasmToCodeMessage {
     return typeof (x) === 'object' && (x as WasmToCodeMessage).type !== undefined;
 }
@@ -39,18 +50,25 @@ interface CodeToWasmNodeCommand extends CodeToWasmCommandBase {
     nodeId: NodeId;
 }
 
+interface CodeToWasmManyNodesCommand extends CodeToWasmCommandBase {
+    command: 'manyNodes';
+    nodeId: NodeId;
+    count: number;
+}
+
 type CodeToWasmCommand =
     CodeToWasmRootCommand
     | CodeToWasmNodeCommand
+    | CodeToWasmManyNodesCommand
     ;
 
 export class MSBuildLogDocument implements vscode.CustomDocument {
     disposables: DisposableLike[];
-    readonly _requestDispatch: SyncRequestDispatch<WasmToCodeNodeReply>;
+    readonly _requestDispatch: SyncRequestDispatch<WasmToCodeReply>;
     constructor(readonly uri: Uri, readonly _engine: WasmEngine, readonly out: vscode.LogOutputChannel) {
         this.disposables = [];
         this.disposables.push(this._engine);
-        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<WasmToCodeNodeReply>());
+        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<WasmToCodeReply>());
         this._engine.runProcess();
         this.disposables.push(this._engine.process.stdout!.onData(jsonFromChunks((value) => this.gotStdOut(value))));
         this.disposables.push(this._engine.process.stderr!.onData(stringFromChunks((value) => this.gotStdErr(value))));
@@ -76,7 +94,8 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                     this._engine.applicationChangedState(WasmState.SHUTTING_DOWN);
                     break;
                 case 'node':
-                    const nodeReply = value as WasmToCodeNodeReply;
+                case 'manyNodes':
+                    const nodeReply = value as WasmToCodeReply;
                     const requestId = nodeReply.requestId;
                     this._requestDispatch.satisfy(requestId, nodeReply);
                     break;
@@ -102,6 +121,9 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
             case 'node':
                 extra = `${c.nodeId}\n`;
                 break;
+            case 'manyNodes':
+                extra = `${c.nodeId}\n${c.count}\n`;
+                break;
             default:
                 assertNever(c);
                 break;
@@ -111,20 +133,35 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
 
 
     async requestRoot(): Promise<WasmToCodeNodeReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply();
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeNodeReply>();
         this.out.info(`requested root id=${requestId}`);
         await this.postCommand({ requestId, command: 'root' });
         const n = await replyPromise;
+        if (n.type != 'node')
+            throw Error(`expected reply type 'node', but got ${n.type}`);
         this.out.info(`god root id=${requestId} nodeId=${n.node.nodeId}`);
         return n;
     }
 
     async requestNode(nodeId: NodeId): Promise<WasmToCodeNodeReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply();
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeNodeReply>();
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
         await this.postCommand({ requestId, command: 'node', nodeId });
         const n = await replyPromise;
+        if (n.type != 'node')
+            throw Error(`expected reply type 'node', but got ${n.type}`);
         this.out.info(`got node requestId=${requestId} nodeId=${n.node.nodeId}`);
+        return n;
+    }
+
+    async requestManyNodes(nodeId: NodeId, count: number): Promise<WasmToCodeManyNodesReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeManyNodesReply>();
+        this.out.info(`requested id=${requestId}  ${count} nodes starting from nodeId=${nodeId}`);
+        await this.postCommand({ requestId, command: 'manyNodes', nodeId, count });
+        const n = await replyPromise;
+        if (n.type != 'manyNodes')
+            throw Error(`expected reply type 'node', but got ${n.type}`);
+        this.out.info(`got many nodes requestId=${requestId} nodes.length=${n.nodes.length}`);
         return n;
     }
 

@@ -22,9 +22,9 @@ export class SyncRequestDispatch<R = any> {
         }
     }
 
-    promiseReply(): [number, Promise<R>] {
+    promiseReply<S extends R = R>(): [number, Promise<S>] {
         const requestId = this._nextRequestId++;
-        const promise = new Promise<R>((resolve, reject) => {
+        const promise = new Promise<S>((resolve, reject) => {
             this._requestDispatch.set(requestId, { resolve, reject });
         });
         return [requestId, promise];

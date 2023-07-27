@@ -140,9 +140,18 @@ void
 SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId)
 {
     var replyNodes = new Node[nodes.Length];
+    int dest = 0;
     for (int i = 0; i < nodes.Length; i++)
     {
-        replyNodes[i] = FormatNode(nodeIds, nodes[i]);
+        if (nodes[i] == null)
+        {
+            continue;
+        }
+        replyNodes[dest++] = FormatNode(nodeIds, nodes[i]);
+    }
+    if (dest < nodes.Length)
+    {
+        Array.Resize<Node>(ref replyNodes, dest);
     }
     var msg = new ManyNodesMessage()
     {

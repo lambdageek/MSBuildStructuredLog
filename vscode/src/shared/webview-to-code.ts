@@ -1,3 +1,5 @@
+import { NodeId } from './model';
+
 export interface WebviewToCodeMessage {
     type: string;
 }
@@ -16,12 +18,19 @@ export interface WebviewToCodeRootRequest extends WebviewToCodeRequestBase {
 
 export interface WebviewToCodeNodeRequest extends WebviewToCodeRequestBase {
     type: 'node';
-    nodeId: number;
+    nodeId: NodeId;
+}
+
+export interface WebviewToCodeManyNodesRequest extends WebviewToCodeRequestBase {
+    type: 'manyNodes';
+    nodeId: NodeId;
+    count: number;
 }
 
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
+    | WebviewToCodeManyNodesRequest
     ;
 
 export interface WebviewToCodeReplyReady {

@@ -44,6 +44,12 @@ export interface CodeToWebviewNodeReply extends CodeToWebviewReplyBase {
     node: Node;
 }
 
+export interface CodeToWebviewManyNodesReply extends CodeToWebviewReplyBase {
+    type: 'manyNodes';
+    nodes: Node[];
+}
+
 export type CodeToWebviewReply =
     CodeToWebviewNodeReply
+    | CodeToWebviewManyNodesReply
     ;

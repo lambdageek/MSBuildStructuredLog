@@ -121,6 +121,7 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                     break;
                 case 'root':
                 case 'node':
+                case 'manyNodes':
                     this.onNodeRequest(webviewPanel, document, e);
                     break;
                 default:
@@ -144,14 +145,32 @@ export class MSBuildLogViewerReadonlyEditorProvider implements vscode.CustomRead
                 this.postToWebview(webviewPanel.webview, reply);
                 break;
             }
-            case 'node': {
+            case 'node':
+            case 'manyNodes': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
-                const node = await document.requestNode(id);
-                const reply: CodeToWebviewNodeReply = {
-                    type: 'node',
-                    requestId,
-                    node: node.node,
+                let reply: CodeToWebviewReply;
+                switch (e.type) {
+                    case 'node':
+                        const node = await document.requestNode(id);
+                        reply = {
+                            type: 'node',
+                            requestId,
+                            node: node.node,
+                        };
+                        break;
+                    case 'manyNodes':
+                        const nodes = await document.requestManyNodes(id, e.count);
+                        reply = {
+                            type: 'manyNodes',
+                            requestId,
+                            nodes: nodes.nodes,
+                        }
+                        break;
+                    default:
+                        assertNever(e);
+                        reply = undefined as any;
+                        break;
                 }
                 MSBuildLogViewerReadonlyEditorProvider.out.info(`posting node ${id} to webview ${JSON.stringify(reply)}`);
                 this.postToWebview(webviewPanel.webview, reply);
