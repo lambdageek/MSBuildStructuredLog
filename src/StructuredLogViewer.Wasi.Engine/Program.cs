@@ -248,22 +248,12 @@ class NodeCollector
         int id = _nodeMapper.GetOrAssignId(node);
         return _explored.Add(id);
     }
-    public BaseNode[] CollectNodes(BaseNode start, int count, bool appendLeftovers = true)
+    public BaseNode[] CollectNodes(BaseNode start, int count, bool appendLeftovers = false)
     {
         var results = new BaseNode[count];
         Queue<BaseNode> workQueue = new();
         int added = 0;
-        if (start is TreeNode tn)
-        {
-            workQueue.Enqueue(tn);
-        }
-        else
-        {
-            if (MarkExplored(start))
-            {
-                results[added++] = start;
-            }
-        }
+        workQueue.Enqueue(start);
         do
         {
             while (added < count && workQueue.TryDequeue(out BaseNode workNode))
@@ -271,20 +261,21 @@ class NodeCollector
                 if (MarkExplored(workNode))
                 {
                     results[added++] = workNode;
-                    if (workNode is TreeNode parent)
+                }
+                if (workNode is TreeNode parent)
+                {
+                    foreach (var child in parent.Children)
                     {
-                        foreach (var child in parent.Children)
-                        {
-                            workQueue.Enqueue(child);
-                        }
+                        workQueue.Enqueue(child);
                     }
                 }
             }
-            /* if we didn't finish wiht the local work, put it on the global leftovers queue */
+            /* if we didn't finish with the local work, put it on the global leftovers queue */
             foreach (BaseNode leftover in workQueue)
             {
                 _globalLeftovers.Enqueue(leftover);
             }
+            workQueue.Clear();
             /* if we don't want extra stuff, we're done */
             if (!appendLeftovers)
             {
