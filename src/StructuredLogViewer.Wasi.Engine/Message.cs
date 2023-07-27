@@ -72,10 +72,22 @@ internal class Sender
     public void SendNode(NodeMessage message)
     {
         JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 
     public void SendNodes(ManyNodesMessage message)
     {
-        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
+        var bs = System.Text.Encoding.UTF8.GetBytes(s);
+        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
+        int offset = 0;
+        //HACK: vscode-wasi can't handle more than 16kB writes at once to a pipe or character device
+        while (offset < bs.Length)
+        {
+            var span = new ReadOnlySpan<byte>(bs, offset, Math.Min(bs.Length - offset, 16384));
+            stream.Write(span);
+            offset += span.Length;
+        }
+        stream.Flush();
     }
 }
