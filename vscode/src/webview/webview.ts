@@ -14,7 +14,7 @@ import * as req from '../shared/webview-to-code';
 
 const vscode = acquireVsCodeApi<void>();
 
-function postToVs(message: req.WebviewToCodeRequest | req.WebviewToCodeReply) {
+function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeRequest | req.WebviewToCodeReply) {
     vscode.postMessage(message);
 }
 
@@ -103,19 +103,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     postToVs({ type: 'ready' });
                     break;
                 }
-                case 'ready': {
-                    mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
-                    queueMicrotask(() => requestRoot());
-                    break;
-                }
-                case 'done': {
-                    mainAppDiv.innerHTML = "<p>StructuredLogViewer.Wasi.Engine finished</p>";
-                    window.removeEventListener('message', messageHandler);
-                    break;
-                }
-                case 'faulted': {
-                    mainAppDiv.innerHTML = `<p class="error">StructuredLogViewer.Wasi.Engine faulted</p>`;
-                    window.removeEventListener('message', messageHandler);
+                case 'engineStateChange': {
+                    switch (ev.data.state) {
+                        case 'ready': {
+                            mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
+                            queueMicrotask(() => requestRoot());
+                            break;
+                        }
+                        case 'done': {
+                            mainAppDiv.innerHTML = "<p>StructuredLogViewer.Wasi.Engine finished</p>";
+                            window.removeEventListener('message', messageHandler);
+                            break;
+                        }
+                        case 'faulted': {
+                            mainAppDiv.innerHTML = `<p class="error">StructuredLogViewer.Wasi.Engine faulted</p>`;
+                            window.removeEventListener('message', messageHandler);
+                            break;
+                        }
+                        default:
+                            assertNever(ev.data.state);
+                            mainAppDiv.innerHTML = `<p class="error">Got a ${(ev.data as any).state} engine state change unexpectedly</p>`;
+                            break;
+                    }
                     break;
                 }
                 case 'node':
@@ -134,5 +143,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.addEventListener('message', messageHandler);
-    postToVs({ type: 'ready' });
+    postToVs({ type: 'contentLoaded' });
 });

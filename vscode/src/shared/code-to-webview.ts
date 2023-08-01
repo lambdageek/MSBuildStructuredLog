@@ -11,16 +11,11 @@ export function isCodeToWebviewMessage(x: unknown): x is CodeToWebviewMessage {
 
 interface CodeToWebviewEventBase extends CodeToWebviewMessage { }
 
-export interface CodeToWebviewEventReady extends CodeToWebviewEventBase {
-    type: 'ready';
-}
+export type EngineState = 'notStarted' | 'ready' | 'done' | 'faulted';
 
-export interface CodeToWebviewEventDone extends CodeToWebviewEventBase {
-    type: 'done';
-}
-
-export interface CodeToWebviewEventFaulted extends CodeToWebviewEventBase {
-    type: 'faulted';
+export interface CodeToWebviewEventEngineStateChange extends CodeToWebviewEventBase {
+    type: 'engineStateChange';
+    state: Exclude<EngineState, 'notStarted'>;
 }
 
 export interface CodeToWebviewEventInit extends CodeToWebviewEventBase {
@@ -29,9 +24,7 @@ export interface CodeToWebviewEventInit extends CodeToWebviewEventBase {
 }
 
 export type CodeToWebviewEvent =
-    CodeToWebviewEventDone
-    | CodeToWebviewEventFaulted
-    | CodeToWebviewEventReady
+    CodeToWebviewEventEngineStateChange
     | CodeToWebviewEventInit
     ;
 

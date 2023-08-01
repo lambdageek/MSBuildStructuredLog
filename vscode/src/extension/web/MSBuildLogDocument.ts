@@ -76,6 +76,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
 
     dispose() {
         this.disposables.forEach(d => d.dispose());
+        this.disposables.length = 0;
     }
 
     get state(): WasmState { return this._engine.state; }

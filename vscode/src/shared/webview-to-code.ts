@@ -37,4 +37,8 @@ export interface WebviewToCodeReplyReady {
     type: 'ready';
 }
 
+export interface WebviewToCodeContentLoaded extends WebviewToCodeMessage {
+    type: 'contentLoaded';
+}
+
 export type WebviewToCodeReply = WebviewToCodeReplyReady;
