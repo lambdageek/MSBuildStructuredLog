@@ -15,19 +15,19 @@ interface WasmToCodeMessage {
     type: string;
 }
 
-export interface WasmToCodeNodeReply extends WasmToCodeMessage {
+interface WasmToCodeNodeReply extends WasmToCodeMessage {
     type: 'node';
     requestId: number;
     node: Node;
 }
 
-export interface WasmToCodeManyNodesReply extends WasmToCodeMessage {
+interface WasmToCodeManyNodesReply extends WasmToCodeMessage {
     type: 'manyNodes';
     requestId: number;
     nodes: Node[];
 }
 
-export type WasmToCodeReply =
+type WasmToCodeReply =
     WasmToCodeNodeReply
     | WasmToCodeManyNodesReply
     ;
