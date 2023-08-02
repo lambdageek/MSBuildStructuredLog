@@ -9,7 +9,6 @@ import { SyncRequestDispatch } from '../../shared/sync-request';
 import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
 import { loadWasm, WasmEngine, WasmState, WasmStateChangeEvent } from './wasm/engine';
 import * as wasiWasm from '@vscode/wasm-wasi';
-import { assertNever } from '../../shared/assert-never';
 
 interface WasmToCodeMessage {
     type: string;
@@ -65,7 +64,7 @@ type CodeToWasmCommand =
 export class MSBuildLogDocument implements vscode.CustomDocument {
     disposables: DisposableLike[];
     readonly _requestDispatch: SyncRequestDispatch<WasmToCodeReply>;
-    constructor(readonly uri: Uri, readonly _engine: WasmEngine, readonly out: vscode.LogOutputChannel) {
+    constructor(readonly _pipeIn: wasiWasm.Writable, readonly uri: Uri, readonly _engine: WasmEngine, readonly out: vscode.LogOutputChannel) {
         this.disposables = [];
         this.disposables.push(this._engine);
         this.disposables.push(this._requestDispatch = new SyncRequestDispatch<WasmToCodeReply>());
@@ -83,7 +82,7 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
     isLive(): boolean { return this._engine.isLive(); }
 
     gotStdOut(value: unknown) {
-        this.out.info(`received from wasm process: ${value}`);
+        this.out.info(`received from wasm process: ${JSON.stringify(value)}`);
         if (isWasmToCodeMessage(value)) {
             switch (value.type) {
                 case 'ready':
@@ -113,25 +112,23 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
     get onStateChange(): vscode.Event<WasmStateChangeEvent> { return this._engine.onStateChange; }
 
     async postCommand(c: CodeToWasmCommand): Promise<void> {
-        let requestId = c.requestId;
-        let command = c.command;
-        let extra: string = '';
-        switch (c.command) {
-            case 'root':
-                break;
-            case 'node':
-                extra = `${c.nodeId}\n`;
-                break;
-            case 'manyNodes':
-                extra = `${c.nodeId}\n${c.count}\n`;
-                break;
-            default:
-                assertNever(c);
-                break;
-        }
-        await this._engine.process.stdin?.write(`${requestId}\n${command}\n${extra}`, 'utf-8');
+        const json = JSON.stringify(c);
+        const encoder = new TextEncoder();
+        const jsonBytes = encoder.encode(json);
+        const len = jsonBytes.byteLength;
+        this.out?.info(`sending ${len} followed by <<${json}>>`);
+        const lenBuf = new ArrayBuffer(4);
+        const int32View = new Int32Array(lenBuf);
+        int32View[0] = len;
+        const int8View = new Uint8Array(lenBuf);
+        int8View[0]++;
+        int8View[1]++;
+        int8View[2]++;
+        int8View[3]++;
+        await this._pipeIn.write(int8View);
+        await this._pipeIn.write(jsonBytes);
+        await this._pipeIn.write('\n', 'utf-8');
     }
-
 
     async requestRoot(): Promise<WasmToCodeNodeReply> {
         const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeNodeReply>();
@@ -172,9 +169,16 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
     out.info(`opening msbuild log ${uri}`);
     const wasm = await loadWasm();
     await polyfillStreams();
+    //const memFS = await wasm.createMemoryFileSystem();
     const rootFileSystem = await wasm.createRootFileSystem([
-        { kind: 'workspaceFolder' }
+        { kind: 'workspaceFolder' },
+        //{
+        //    kind: 'memoryFileSystem',
+        //    mountPoint: '/pipe',
+        //    fileSystem: memFS
+        //},
     ]);
+    //const pipeIn = memFS.createWritable('./input', 'utf-8');
     const pipeIn = wasm.createWritable();
     const pipeOut = wasm.createReadable();
     const pipeErr = wasm.createReadable();
@@ -185,7 +189,7 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
             out: { 'kind': 'pipeOut', pipe: pipeOut },
             err: { 'kind': 'pipeOut', pipe: pipeErr },
         },
-        rootFileSystem
+        rootFileSystem,
     };
     const path = Uri.joinPath(context.extensionUri, 'dist', 'StructuredLogViewer.Wasi.Engine.wasm');
     const moduleBytes = await vscode.workspace.fs.readFile(path);
@@ -194,6 +198,6 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
     const process = await wasm.createProcess('StructuredLogViewer.Wasi.Engine', module, options);
     const engine = new WasmEngine(process, out);
     out.info('process created')
-    return new MSBuildLogDocument(uri, engine, out);
+    return new MSBuildLogDocument(pipeIn, uri, engine, out);
 }
 

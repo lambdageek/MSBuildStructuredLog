@@ -29,6 +29,9 @@ try
     var sender = new Sender(stdOut);
 
     sender.SendReady();
+    using var stdIn = Console.OpenStandardInput();
+    var parser = new CommandParser(stdIn);
+
     var build = BinaryLog.ReadBuild(binlogPath);
     BuildAnalyzer.AnalyzeBuild(build);
 
@@ -37,54 +40,39 @@ try
     bool done = false;
     do
     {
-        if (!TryParseCommand(out Command command, out int requestId))
+        var command = parser.ParseCommand();
+        Console.Error.WriteLine($"parsed a command of type {command.GetType().Name}");
+        switch (command.Type)
         {
-            throw new InvalidOperationException("Could not parse command");
-        }
-        switch (command)
-        {
-            case Command.Quit:
+            case CommandType.Quit:
                 done = true;
                 break;
-            case Command.Root:
-                SendNode(sender, nodeIds, build, requestId);
+            case CommandType.Root:
+                SendNode(sender, nodeIds, build, command.RequestId);
                 break;
-            case Command.Node:
-                if (int.TryParse(Console.ReadLine(), out var requestedNodeId))
+            case CommandType.Node:
+                var nodeCommand = command as NodeCommand;
+                if (nodeIds.FindNodeWithId(nodeCommand.NodeId, out BaseNode node))
                 {
-                    if (nodeIds.FindNodeWithId(requestedNodeId, out BaseNode node))
-                    {
-                        nodeCollector.MarkExplored(node);
-                        SendNode(sender, nodeIds, node, requestId);
-                        break;
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("no node with requested id");
-                    }
+                    nodeCollector.MarkExplored(node);
+                    SendNode(sender, nodeIds, node, nodeCommand.RequestId);
+                    break;
                 }
                 else
                 {
-                    throw new InvalidOperationException("can't parse node Id");
+                    throw new InvalidOperationException("no node with requested id");
                 }
-            case Command.ManyNodes:
-                if (int.TryParse(Console.ReadLine(), out var requestedStartId) &&
-                    int.TryParse(Console.ReadLine(), out var count))
+            case CommandType.ManyNodes:
+                var manyNodesCommand = command as ManyNodesCommand;
+                if (nodeIds.FindNodeWithId(manyNodesCommand.NodeId, out BaseNode start))
                 {
-                    if (nodeIds.FindNodeWithId(requestedStartId, out BaseNode start))
-                    {
-                        BaseNode[] nodes = nodeCollector.CollectNodes(start, count);
-                        SendManyNodes(sender, nodeIds, nodes, requestId);
-                        break;
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("no start node with requested id");
-                    }
+                    BaseNode[] nodes = nodeCollector.CollectNodes(start, manyNodesCommand.Count);
+                    SendManyNodes(sender, nodeIds, nodes, manyNodesCommand.RequestId);
+                    break;
                 }
                 else
                 {
-                    throw new InvalidOperationException("can't parse manyNodes id and count");
+                    throw new InvalidOperationException("no start node with requested id");
                 }
             default:
                 throw new UnreachableException("should not get here");
@@ -159,46 +147,6 @@ SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId
         Nodes = replyNodes,
     };
     sender.SendNodes(msg);
-}
-
-bool
-TryParseCommand(out Command command, out int requestId)
-{
-    var requestIdStr = Console.ReadLine();
-    if (!int.TryParse(requestIdStr, out requestId))
-    {
-        command = default;
-        return false;
-    }
-    var cmd = Console.ReadLine();
-    switch (cmd)
-    {
-        case "quit":
-            command = Command.Quit;
-            return true;
-        case "root":
-            command = Command.Root;
-            return true;
-        case "node":
-            command = Command.Node;
-            return true;
-        case "manyNodes":
-            command = Command.ManyNodes;
-            return true;
-        default:
-            command = default;
-            return false;
-    }
-}
-
-
-enum Command
-{
-    None = 0,
-    Quit,
-    Root,
-    Node,
-    ManyNodes,
 }
 
 class NodeMapper
