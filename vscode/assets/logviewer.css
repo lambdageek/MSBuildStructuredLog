@@ -19,6 +19,9 @@ span.nodeKind {
     border: 2px dotted;
 }
 
+details>summary p {
+    display: inline;
+}
 p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Build span.nodeKind {
     display: none;
 }

@@ -55,12 +55,21 @@ function paintNode(nodeId: NodeId, container: HTMLElement) {
         button.textContent = `${nodeId}`;
         container.appendChild(button);
     } else {
-        container.innerHTML = `<p class='node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}</p>`;
+        let childrenDest = container;
+        let summaryDest = container;
+        if (node.children && node.children.length > 0) {
+            const details = document.createElement('details');
+            container.appendChild(details);
+            summaryDest = document.createElement('summary');
+            details.appendChild(summaryDest);
+            childrenDest = details;
+        }
+        summaryDest.innerHTML = `<p class='node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}</p>`;
         if (node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');
                 childBox.setAttribute('class', 'treeNode');
-                container.appendChild(childBox);
+                childrenDest.appendChild(childBox);
                 paintNode(node.children[i], childBox);
             }
         }
