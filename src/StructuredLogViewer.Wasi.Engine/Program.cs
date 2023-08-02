@@ -92,7 +92,7 @@ try
                     if (nodeIds.FindNodeWithId(requestedSummaryStartId, out BaseNode start))
                     {
                         BaseNode[] nodes = NodesForSummary(start);
-                        SendManyNodes(sender, nodeIds, nodes, requestId);
+                        SendManyNodes(sender, nodeIds, nodes, requestId, true);
                         break;
                     }
                     else
@@ -155,7 +155,7 @@ SendNode(Sender sender, NodeMapper nodeIds, BaseNode node, int requestId)
 }
 
 void
-SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId)
+SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId, bool firstFullyExplored = false)
 {
     var replyNodes = new Node[nodes.Length];
     int dest = 0;
@@ -165,7 +165,13 @@ SendManyNodes(Sender sender, NodeMapper nodeIds, BaseNode[] nodes, int requestId
         {
             continue;
         }
-        replyNodes[dest++] = FormatNode(nodeIds, nodes[i]);
+        Node formatted = FormatNode(nodeIds, nodes[i]);
+        if (firstFullyExplored)
+        {
+            formatted.FullyExplored = true;
+            firstFullyExplored = false;
+        }
+        replyNodes[dest++] = formatted;
     }
     if (dest < nodes.Length)
     {

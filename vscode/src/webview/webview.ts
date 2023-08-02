@@ -21,7 +21,9 @@ function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeReq
 const nodeMap = new Map<NodeId, Node>();
 
 function addNodeToMap(node: Node) {
-    nodeMap.set(node.nodeId, node);
+    const fullyExplored = node.fullyExplored ?? false;
+    if (fullyExplored || !nodeMap.has(node.nodeId))
+        nodeMap.set(node.nodeId, node);
 }
 
 const requestDispatch = new SyncRequestDispatch<CodeToWebviewReply>();
@@ -52,7 +54,7 @@ async function requestNodeSummary(nodeId: NodeId): Promise<void> {
 }
 
 
-function paintNode(nodeId: NodeId, container: HTMLElement) {
+function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undefined) {
     const node = nodeMap.get(nodeId);
     if (node === undefined) {
         const button = document.createElement('button');
@@ -69,13 +71,27 @@ function paintNode(nodeId: NodeId, container: HTMLElement) {
         let summaryDest = container;
         if (node.children && node.children.length > 0) {
             const details = document.createElement('details');
+            if (open === 'open') {
+                details.setAttribute('open', '');
+            }
+            const fullyExplored = node.fullyExplored ?? false;
             container.appendChild(details);
+            if (!fullyExplored) {
+                details.addEventListener('toggle', async (ev) => {
+                    if (details.getAttribute('open') === '') {
+                        ev.preventDefault();
+                        await requestNodeSummary(nodeId);
+                        container.removeChild(details);
+                        paintNode(nodeId, container, 'open');
+                    }
+                }, { once: true });
+            }
             summaryDest = document.createElement('summary');
             details.appendChild(summaryDest);
             childrenDest = details;
         }
         summaryDest.innerHTML = `<p class='node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}</p>`;
-        if (node.children && node.children.length > 0) {
+        if ((node.fullyExplored ?? false) && node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');
                 childBox.setAttribute('class', 'treeNode');
