@@ -86,6 +86,24 @@ try
                 {
                     throw new InvalidOperationException("can't parse manyNodes id and count");
                 }
+            case Command.SummarizeNode:
+                if (int.TryParse(Console.ReadLine(), out var requestedSummaryStartId))
+                {
+                    if (nodeIds.FindNodeWithId(requestedSummaryStartId, out BaseNode start))
+                    {
+                        BaseNode[] nodes = NodesForSummary(start);
+                        SendManyNodes(sender, nodeIds, nodes, requestId);
+                        break;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("no start summary node with requested id");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("can't parse  summarizeNode id");
+                }
             default:
                 throw new UnreachableException("should not get here");
         }
@@ -185,12 +203,35 @@ TryParseCommand(out Command command, out int requestId)
         case "manyNodes":
             command = Command.ManyNodes;
             return true;
+        case "summarizeNode":
+            command = Command.SummarizeNode;
+            return true;
         default:
             command = default;
             return false;
     }
 }
 
+BaseNode[]
+NodesForSummary(BaseNode start)
+{
+    int count = 1;
+    if (start is TreeNode treeNode && treeNode.HasChildren && treeNode.Children.Count > 0)
+    {
+        count += treeNode.Children.Count;
+    }
+    var nodes = new BaseNode[count];
+    int i = 0;
+    nodes[i++] = start;
+    if (count > 1)
+    {
+        foreach (BaseNode child in (start as TreeNode).Children)
+        {
+            nodes[i++] = child;
+        }
+    }
+    return nodes;
+}
 
 enum Command
 {
@@ -199,6 +240,7 @@ enum Command
     Root,
     Node,
     ManyNodes,
+    SummarizeNode,
 }
 
 class NodeMapper

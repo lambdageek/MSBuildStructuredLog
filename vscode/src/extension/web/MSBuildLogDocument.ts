@@ -56,10 +56,16 @@ interface CodeToWasmManyNodesCommand extends CodeToWasmCommandBase {
     count: number;
 }
 
+interface CodeToWasmSummarizeNodeCommand extends CodeToWasmCommandBase {
+    command: 'summarizeNode';
+    nodeId: NodeId;
+}
+
 type CodeToWasmCommand =
     CodeToWasmRootCommand
     | CodeToWasmNodeCommand
     | CodeToWasmManyNodesCommand
+    | CodeToWasmSummarizeNodeCommand
     ;
 
 export class MSBuildLogDocument implements vscode.CustomDocument {
@@ -125,6 +131,9 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
             case 'manyNodes':
                 extra = `${c.nodeId}\n${c.count}\n`;
                 break;
+            case 'summarizeNode':
+                extra = `${c.nodeId}\n`;
+                break;
             default:
                 assertNever(c);
                 break;
@@ -162,6 +171,17 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         const n = await replyPromise;
         if (n.type != 'manyNodes')
             throw Error(`expected reply type 'node', but got ${n.type}`);
+        this.out.info(`got many nodes requestId=${requestId} nodes.length=${n.nodes.length}`);
+        return n;
+    }
+
+    async requestNodeSummary(nodeId: NodeId): Promise<WasmToCodeManyNodesReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeManyNodesReply>();
+        this.out.info(`requested id=${requestId} node summary`);
+        await this.postCommand({ requestId, command: 'summarizeNode', nodeId });
+        const n = await replyPromise;
+        if (n.type != 'manyNodes')
+            throw Error(`expected reply type 'manyNodes', but got ${n.type}`);
         this.out.info(`got many nodes requestId=${requestId} nodes.length=${n.nodes.length}`);
         return n;
     }

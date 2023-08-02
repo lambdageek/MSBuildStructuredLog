@@ -69,7 +69,8 @@ export class MSBuildLogViewerController implements DisposableLike {
                 break;
             }
             case 'node':
-            case 'manyNodes': {
+            case 'manyNodes':
+            case 'summarizeNode': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
                 let reply: CodeToWebviewReply;
@@ -88,6 +89,14 @@ export class MSBuildLogViewerController implements DisposableLike {
                             type: 'manyNodes',
                             requestId,
                             nodes: nodes.nodes,
+                        }
+                        break;
+                    case 'summarizeNode':
+                        const summaryNodes = await this.document.requestNodeSummary(id);
+                        reply = {
+                            type: 'manyNodes',
+                            requestId,
+                            nodes: summaryNodes.nodes,
                         }
                         break;
                     default:

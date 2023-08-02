@@ -33,14 +33,24 @@ const requestDispatch = new SyncRequestDispatch<CodeToWebviewReply>();
 //     addNodeToMap(node.node);
 // }
 
-async function requestManyNodes(nodeId: NodeId, count: number = 50): Promise<void> {
+// async function requestManyNodes(nodeId: NodeId, count: number = 50): Promise<void> {
+//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
+//     postToVs({ type: 'manyNodes', nodeId, count, requestId });
+//     const nodes = await promise;
+//     for (const node of nodes.nodes) {
+//         addNodeToMap(node);
+//     }
+// }
+
+async function requestNodeSummary(nodeId: NodeId): Promise<void> {
     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
-    postToVs({ type: 'manyNodes', nodeId, count, requestId });
+    postToVs({ type: 'summarizeNode', nodeId, requestId });
     const nodes = await promise;
     for (const node of nodes.nodes) {
         addNodeToMap(node);
     }
 }
+
 
 function paintNode(nodeId: NodeId, container: HTMLElement) {
     const node = nodeMap.get(nodeId);
@@ -48,7 +58,7 @@ function paintNode(nodeId: NodeId, container: HTMLElement) {
         const button = document.createElement('button');
         button.setAttribute('type', 'button');
         button.addEventListener('click', async () => {
-            await requestManyNodes(nodeId);
+            await requestNodeSummary(nodeId);
             container.removeChild(button);
             paintNode(nodeId, container);
         });
@@ -99,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rootId = node.node.nodeId;
         }
         addNodeToMap(node.node);
-        await requestManyNodes(rootId);
+        await requestNodeSummary(rootId);
         refresh();
     }
 

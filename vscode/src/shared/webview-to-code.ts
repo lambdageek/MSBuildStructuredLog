@@ -27,10 +27,16 @@ export interface WebviewToCodeManyNodesRequest extends WebviewToCodeRequestBase 
     count: number;
 }
 
+export interface WebviewToCodeNodeSummaryRequest extends WebviewToCodeRequestBase {
+    type: 'summarizeNode';
+    nodeId: NodeId;
+}
+
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
     | WebviewToCodeManyNodesRequest
+    | WebviewToCodeNodeSummaryRequest
     ;
 
 export interface WebviewToCodeReplyReady {
