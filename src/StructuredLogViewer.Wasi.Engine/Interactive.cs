@@ -187,11 +187,11 @@ public sealed class Interactive : IDisposable
             }
         }
         var summary = node.ToString();
-        summary ??= $"[unprintable node of type {node.GetType()}]";
+        summary ??= $"[unprintable node of type {node.TypeName}]";
         return new Node
         {
             NodeId = id,
-            NodeKind = node.GetType().FullName,
+            NodeKind = node.TypeName,
             Summary = summary,
             Children = childIds
         };

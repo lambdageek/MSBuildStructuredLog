@@ -22,83 +22,83 @@ span.nodeKind {
 details>summary p {
     display: inline;
 }
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Build span.nodeKind {
+p.node-kind-Build span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Build::before {
+p.node-kind-Build::before {
     content: '⚙️ ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Folder span.nodeKind {
+p.node-kind-Folder span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Folder::before {
+p.node-kind-Folder::before {
     content: '📂 ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Property span.nodeKind {
+p.node-kind-Property span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Property::before {
+p.node-kind-Property::before {
     content: '🏷️ ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Project span.nodeKind {
+p.node-kind-Project span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Project::before {
+p.node-kind-Project::before {
     content: '🧰 ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Target span.nodeKind {
+p.node-kind-Target span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Target::before {
+p.node-kind-Target::before {
     content: '🎯 ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Task span.nodeKind {
+p.node-kind-Task span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Task::before {
+p.node-kind-Task::before {
     content: '📋 ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Message span.nodeKind {
+p.node-kind-Message span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Message::before {
+p.node-kind-Message::before {
     content: '📣 ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.TimedNode span.nodeKind {
+p.node-kind-TimedNode span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.TimedNode::before {
+p.node-kind-TimedNode::before {
     content: '⏳ ';
     border: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Item span.nodeKind {
+p.node-kind-Item span.nodeKind {
     display: none;
 }
 
-p.node-kind-Microsoft\.Build\.Logging\.StructuredLogger\.Item::before {
+p.node-kind-Item::before {
     content: '📄 ';
     border: none;
 }
