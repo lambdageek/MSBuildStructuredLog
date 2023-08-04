@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function refresh() {
         if (rootId != -1) {
             rootDiv.setAttribute('class', 'treeNode');
-            paintNode(rootId, rootDiv);
+            paintNode(rootId, rootDiv, 'open');
         }
     }
 
