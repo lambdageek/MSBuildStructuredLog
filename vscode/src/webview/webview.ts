@@ -12,6 +12,28 @@ import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply, CodeToW
 
 import * as req from '../shared/webview-to-code';
 
+let sideviewOpen = false;
+let gridColumnParent: HTMLDivElement | null = null;
+let sideview: HTMLDivElement | null = null;
+
+function toggleSideview() {
+    if (!gridColumnParent) {
+        gridColumnParent = <HTMLDivElement>document.getElementById('grid-column-parent');
+    }
+    if (!sideview) {
+        sideview = <HTMLDivElement>document.getElementById('side-view');
+    }
+    if (sideviewOpen) {
+        gridColumnParent.setAttribute('class', 'side-view-closed');
+        sideview.style.display = 'none';
+        sideviewOpen = false;
+    } else {
+        gridColumnParent.setAttribute('class', 'side-view-open');
+        sideview.style.display = 'block';
+        sideviewOpen = true;
+    }
+}
+
 const vscode = acquireVsCodeApi<void>();
 
 function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeRequest | req.WebviewToCodeReply) {
@@ -90,12 +112,23 @@ function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undef
             details.appendChild(summaryDest);
             childrenDest = details;
         }
-        let nodeSummaryAbridged = '';
+        let nodeSummaryAbridged: HTMLSpanElement | null = null;
         if (node.abridged) {
-            nodeSummaryAbridged = `<span class='nodeSummaryAbridged'> 🔍</span>`;
-            // TODO: add an onclick handler for abridged nodes to show full text
+            nodeSummaryAbridged = document.createElement('span');
+            nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
+            nodeSummaryAbridged.appendChild(document.createTextNode(' 🔍'));
+            nodeSummaryAbridged.addEventListener('click', async () => {
+                // TODO: request abridged node's full content and display it in the sideview
+                toggleSideview(); // FIXME: this should force the sideview to open unless we're already showing the current node.
+            });
         }
-        summaryDest.innerHTML = `<p class='nodeSummary node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}${nodeSummaryAbridged}</p>`;
+        const nodeSummary = document.createElement('p');
+        nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}`);
+        nodeSummary.innerHTML = `<span class='nodeKind'>${node.nodeKind}</span>${node.summary}`;
+        if (nodeSummaryAbridged) {
+            nodeSummary.appendChild(nodeSummaryAbridged);
+        }
+        summaryDest.appendChild(nodeSummary);
         if ((node.fullyExplored ?? false) && node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');

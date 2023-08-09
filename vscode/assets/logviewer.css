@@ -5,16 +5,36 @@ div.treeNode {
     padding-top: 1ex;
     padding-left: 2em;
 }
+div#grid-column-parent {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    margin-top: 4ex;
+    margin-left: 2ex;
+    margin-right: 2ex;
+    margin-bottom: 2ex;
+    grid-template-areas: "main main";
+}
+
+div#grid-column-parent.side-view-open {
+    grid-template-areas: "main side";
+}
 div#mainApp {
     font-size: smaller;
 }
 
+div#side-view {
+    display: none;
+    grid-area: side;
+    margin: 0;
+    padding: 1ex;
+    border: 1px dashed red;
+}
 div#logview-root-node {
-    margin-top: 4ex;
-        margin-left: 2ex;
-        margin-right: 2ex;
-        margin-bottom: 2ex;
+    grid-area: main;
+        margin: 0;
+        padding: 1ex;
     white-space: pre-wrap;
+    border: 1px dashed red;
 }
 span.nodeKind {
     font-size: xx-small;
