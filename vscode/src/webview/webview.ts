@@ -90,7 +90,12 @@ function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undef
             details.appendChild(summaryDest);
             childrenDest = details;
         }
-        summaryDest.innerHTML = `<p class='node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}</p>`;
+        let nodeSummaryAbridged = '';
+        if (node.abridged) {
+            nodeSummaryAbridged = `<span class='nodeSummaryAbridged'> 🔍</span>`;
+            // TODO: add an onclick handler for abridged nodes to show full text
+        }
+        summaryDest.innerHTML = `<p class='nodeSummary node-kind-${node.nodeKind}'><span class='nodeKind'>${node.nodeKind}</span>${node.summary}${nodeSummaryAbridged}</p>`;
         if ((node.fullyExplored ?? false) && node.children && node.children.length > 0) {
             for (let i = 0; i < node.children.length; i++) {
                 const childBox = document.createElement('div');

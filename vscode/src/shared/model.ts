@@ -7,6 +7,7 @@ export interface Node {
     nodeId: NodeId;
     summary: string;
     fullyExplored?: boolean;
+    abridged?: boolean;
     nodeKind: string;
     children?: [NodeId];
 }

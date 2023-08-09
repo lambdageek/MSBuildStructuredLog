@@ -179,19 +179,42 @@ public sealed class Interactive : IDisposable
         if (node is TreeNode tn && tn.HasChildren && tn.Children.Count > 0)
         {
             childIds = new int[tn.Children.Count];
-            int d = 0;
+            var d = 0;
             foreach (BaseNode childNode in tn.Children)
             {
                 var childId = _nodeIds.GetOrAssignId(childNode);
                 childIds[d++] = childId;
             }
         }
-        var summary = node.ToString();
+        var abridged = false;
+        string summary = null;
+        //if (node.TypeName == "TimedNode" && node is TimedNode timedNode)
+        //{
+        // timed node subclasses have useful ToString(), but TimedNode itself doesn't.
+        //summary = timedNode.GetTimeAndDurationText();
+        // shorten?
+        //}
+        if (node is Item itemNode)
+        {
+            summary = itemNode.ToString();
+        }
+        if (summary == null && node is TextNode textNode)
+        {
+            var shorten = TextUtilities.ShortenValue(textNode.Text, trimPrompt: "…", maxChars: TextUtilities.MaxDisplayedValueLength);
+            if (shorten != textNode.Text)
+            {
+                summary = shorten;
+                abridged = true;
+            }
+            else { summary = textNode.Text; }
+        }
+        summary ??= node.ToString();
         summary ??= $"[unprintable node of type {node.TypeName}]";
         return new Node
         {
             NodeId = id,
             NodeKind = node.TypeName,
+            Abridged = abridged,
             Summary = summary,
             Children = childIds
         };

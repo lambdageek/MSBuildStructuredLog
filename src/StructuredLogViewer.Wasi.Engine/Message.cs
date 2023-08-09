@@ -27,6 +27,7 @@ internal class DoneMessage : Message
 internal class Node
 {
     public string Summary { get; set; }
+    public bool Abridged { get; set; }
     public bool FullyExplored { get; set; }
     public string NodeKind { get; set; }
     public int NodeId { get; set; }
