@@ -3,98 +3,85 @@
 // import type { LogModel } from '../shared/model';
 
 
-import { NodeId } from '../shared/model';
-
 import { assertNever } from '../shared/assert-never';
 
 import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
 
 import { requestRoot, requestNodeSummary, postToVs, satisfyRequest } from './post-to-vs';
 import { NodeTreeRenderer } from './node-tree-renderer';
+import { SideViewController } from './side-view';
 
-let sideviewOpen: false | { nodeId: NodeId } = false;
-let gridColumnParent: HTMLDivElement | null = null;
-let sideview: HTMLDivElement | null = null;
-
-function ensureSideview() {
-    if (!gridColumnParent) {
-        gridColumnParent = document.getElementById('grid-column-parent') as HTMLDivElement;
-    }
-    if (!sideview) {
-        sideview = document.getElementById('side-view') as HTMLDivElement;
-    }
+function findDivFatal(id: string): HTMLDivElement {
+    const div = document.getElementById(id) as HTMLDivElement;
+    if (!div)
+        throw new Error(`No div with id ${id}`);
+    return div;
 }
 
-const sideViewController = {
-    closeSideview() {
-        ensureSideview();
-        gridColumnParent!.setAttribute('class', 'side-view-closed');
-        sideview!.style.display = 'none';
-        sideviewOpen = false;
-    },
+class App {
+    binlogFsPath: string = '';
 
-    toggleSideview(nodeId: NodeId) {
-        ensureSideview();
-        // if the view is currently open and showing the same node, close it
-        // otherwise open it to the new node
-        if (sideviewOpen && sideviewOpen.nodeId === nodeId) {
-            sideViewController.closeSideview();
-        } else {
-            gridColumnParent!.setAttribute('class', 'side-view-open');
-            sideview!.style.display = 'block';
-            sideviewOpen = { nodeId };
-        }
-    },
+    constructor(readonly mainAppDiv: HTMLDivElement, readonly sideViewController: SideViewController, readonly renderer: NodeTreeRenderer) { }
+    static create(): App {
+        const mainAppDiv = findDivFatal('main-app');
+        const rootDiv = findDivFatal('logview-root-node');
+        const gridColumnParent = findDivFatal('grid-column-parent');
+        const sideview = findDivFatal('side-view');
 
-    async setContent(nodeId: NodeId): Promise<void> {
-        sideview!.innerHTML = `<p>Showing details for Node ${nodeId}</p>`;
+        const sideViewController = new SideViewController(sideview, gridColumnParent);
+        const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
+
+        return new App(mainAppDiv, sideViewController, renderer);
     }
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-    const mainAppDiv = document.getElementById('main-app') as HTMLDivElement;
-    const rootDiv = document.getElementById('logview-root-node') as HTMLDivElement;
-    const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
-    let binlogFsPath = '';
-    if (!mainAppDiv || !rootDiv)
-        throw new Error("no main-app!");
-
-    async function requestRootAndRefresh() {
+    async requestRootAndRefresh() {
         const nodeId = await requestRoot();
-        renderer.setRootId(nodeId);
+        this.renderer.setRootId(nodeId);
         await requestNodeSummary(nodeId);
-        renderer.refresh();
+        this.renderer.refresh();
     }
 
-    function messageHandler(ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void {
+    setStatus(text: string, options?: { logLevel: 'error' }) {
+        const p = document.createElement('p');
+        p.appendChild(document.createTextNode(text));
+        if (options?.logLevel === 'error') {
+            p.setAttribute('class', 'error');
+        }
+        this.mainAppDiv.replaceChildren(p);
+    }
+
+    messageHandler(ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>, removeMessageHandler: () => void): void {
         if (isCodeToWebviewMessage(ev.data)) {
             switch (ev.data.type) {
                 case 'init': {
-                    binlogFsPath = ev.data.fsPath;
-                    mainAppDiv.innerHTML = `<p>Loading ${binlogFsPath}</p>`;
+                    this.binlogFsPath = ev.data.fsPath;
+                    this.setStatus(`Loading ${this.binlogFsPath}`);
                     postToVs({ type: 'ready' });
                     break;
                 }
                 case 'engineStateChange': {
                     switch (ev.data.state) {
                         case 'ready': {
-                            mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
-                            queueMicrotask(() => requestRootAndRefresh());
+                            this.setStatus(`Rendering ${this.binlogFsPath}`);
+                            queueMicrotask(async () => {
+                                await this.requestRootAndRefresh();
+                                this.setStatus(`Loaded ${this.binlogFsPath}`);
+                            });
                             break;
                         }
                         case 'done': {
-                            mainAppDiv.innerHTML = "<p>StructuredLogViewer.Wasi.Engine finished</p>";
-                            window.removeEventListener('message', messageHandler);
+                            this.setStatus("StructuredLogViewer.Wasi.Engine finished");
+                            removeMessageHandler();
                             break;
                         }
                         case 'faulted': {
-                            mainAppDiv.innerHTML = `<p class="error">StructuredLogViewer.Wasi.Engine faulted</p>`;
-                            window.removeEventListener('message', messageHandler);
+                            this.setStatus("StructuredLogViewer.Wasi.Engine faulted", { logLevel: 'error' });
+                            removeMessageHandler();
                             break;
                         }
                         default:
                             assertNever(ev.data.state);
-                            mainAppDiv.innerHTML = `<p class="error">Got a ${(ev.data as any).state} engine state change unexpectedly</p>`;
+                            this.setStatus(`Got a ${(ev.data as any).state} engine state change unexpectedly`, { logLevel: 'error' });
                             break;
                     }
                     break;
@@ -108,17 +95,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 default:
                     assertNever(ev.data);
-                    mainAppDiv.innerHTML = `<p class="error">Got a ${(ev.data as any).type} unexpectedly</p>`;
+                    this.setStatus(`Got a ${(ev.data as any).type} unexpectedly`, { logLevel: 'error' });
                     break;
             }
         }
     }
 
-    window.addEventListener('message', messageHandler);
-    document.addEventListener('keydown', (ev) => {
+    onContentLoaded() {
+        postToVs({ type: 'contentLoaded' });
+    }
+
+    onKeyDown(ev: KeyboardEvent): void {
         if (ev.key === 'Escape') {
-            sideViewController.closeSideview();
+            this.sideViewController.closeSideview();
+            ev.preventDefault();
         }
-    });
-    postToVs({ type: 'contentLoaded' });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const app = App.create();
+
+    const handler = (ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void => app.messageHandler(ev, () => window.removeEventListener('message', handler));
+    window.addEventListener('message', handler);
+    document.addEventListener('keydown', (ev) => app.onKeyDown(ev));
+    app.onContentLoaded();
 });

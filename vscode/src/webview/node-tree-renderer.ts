@@ -5,10 +5,7 @@ import { findNode } from "./node-mapper";
 
 import { requestNodeSummary } from "./post-to-vs";
 
-interface SideViewController {
-    toggleSideview(nodeId: NodeId): void;
-    setContent(nodeId: NodeId): Promise<void>;
-}
+import { SideViewController } from "./side-view";
 
 export class NodeTreeRenderer {
     private rootId: NodeId = -1;
