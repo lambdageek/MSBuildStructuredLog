@@ -1,6 +1,7 @@
 .error {
     color: var(--vscode-errorForeground);
 }
+
 body {
     padding: 0;
     margin: 0;
@@ -12,30 +13,42 @@ div#content {
     margin: 0;
     height: 100vh;
 }
+
 div.treeNode {
     padding-top: 1ex;
     padding-left: 2em;
 }
+
 div#grid-column-parent {
     display: grid;
+    height: 100vh;
     grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
-        grid-template-rows: minmax(0, calc(100vh - 10ex));
-        /* HACK: 10ex is enough for the status bar */
-    margin-top: 4ex;
-    margin-left: 2ex;
-    margin-right: 2ex;
-    margin-bottom: 2ex;
-    grid-template-areas: "main main";
+    grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(2ex, 6ex);
+    grid-template-areas:
+        "search search"
+        "main main"
+        "status status";
 }
 
 div#grid-column-parent.side-view-open {
-    grid-template-areas: "main side";
+    grid-template-areas:
+        "search search"
+        "main side"
+        "status status";
 }
+
 div#mainApp {
+    grid-area: status;
     font-size: smaller;
 }
 
+div#search {
+    grid-area: search;
+    padding: 1ex;
+}
+
 pre.side-view-full-text {}
+
 div#side-view {
     display: none;
     grid-area: side;
@@ -43,13 +56,18 @@ div#side-view {
     padding: 1ex;
     overflow: scroll;
 }
+
 div#logview-root-node {
     grid-area: main;
-        margin: 0;
-        padding: 1ex;
+    margin: 0;
+    padding-top: 4ex;
+    padding-left: 2ex;
+    padding-right: 2ex;
+    padding-bottom: 2ex;
     white-space: pre-wrap;
     overflow: scroll;
 }
+
 span.nodeKind {
     font-size: xx-small;
     font-style: italic;
@@ -59,6 +77,7 @@ span.nodeKind {
 details>summary p {
     display: inline;
 }
+
 p.node-kind-Build span.nodeKind {
     display: none;
 }
