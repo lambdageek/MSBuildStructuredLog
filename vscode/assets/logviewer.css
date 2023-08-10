@@ -17,6 +17,7 @@ div#content {
 div.treeNode {
     padding-top: 1ex;
     padding-left: 2em;
+    background-color: var(--vscode-list-background);
 }
 
 div#grid-column-parent {
@@ -28,6 +29,12 @@ div#grid-column-parent {
         "search search"
         "main main"
         "status status";
+}
+
+
+
+summary:hover {
+    background-color: var(--vscode-list-hoverBackground);
 }
 
 div#grid-column-parent.side-view-open {
