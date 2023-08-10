@@ -117,6 +117,29 @@ public sealed class Interactive : IDisposable
                 {
                     throw new InvalidOperationException("can't parse  summarizeNode id");
                 }
+            case Command.NodeFullText:
+                if (int.TryParse(Console.ReadLine(), out var requestedFullTextId))
+                {
+                    if (_nodeIds.FindNodeWithId(requestedFullTextId, out BaseNode abridgedNode))
+                    {
+                        var fullText = GetNodeFullText(abridgedNode);
+                        var msg = new FullTextMessage()
+                        {
+                            RequestId = requestId,
+                            FullText = fullText,
+                        };
+                        _sender.SendFullText(msg);
+                        break;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("no full text node with requested id");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("can't parse  nodeFullText id");
+                }
             default:
                 throw new UnreachableException("should not get here");
         }
@@ -153,6 +176,9 @@ public sealed class Interactive : IDisposable
                 return true;
             case "summarizeNode":
                 command = Command.SummarizeNode;
+                return true;
+            case "nodeFullText":
+                command = Command.NodeFullText;
                 return true;
             default:
                 command = default;
@@ -220,6 +246,17 @@ public sealed class Interactive : IDisposable
         };
     }
 
+    public string GetNodeFullText(BaseNode node)
+    {
+        if (node is TextNode textNode)
+        {
+            return textNode.Text;
+        }
+        else
+        {
+            return node.ToString();
+        }
+    }
     private void SendManyNodes(BaseNode[] nodes, int requestId, bool firstFullyExplored = false)
     {
         var replyNodes = new Node[nodes.Length];
@@ -279,6 +316,7 @@ public sealed class Interactive : IDisposable
         Node,
         ManyNodes,
         SummarizeNode,
+        NodeFullText,
     }
 
 

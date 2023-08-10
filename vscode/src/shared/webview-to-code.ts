@@ -32,11 +32,17 @@ export interface WebviewToCodeNodeSummaryRequest extends WebviewToCodeRequestBas
     nodeId: NodeId;
 }
 
+export interface WebviewToCodeNodeFullTextRequest extends WebviewToCodeRequestBase {
+    type: 'nodeFullText';
+    nodeId: NodeId;
+}
+
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
     | WebviewToCodeManyNodesRequest
     | WebviewToCodeNodeSummaryRequest
+    | WebviewToCodeNodeFullTextRequest
     ;
 
 export interface WebviewToCodeReplyReady {

@@ -8,6 +8,7 @@ namespace StructuredLogViewer.Wasi.Engine;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(NodeMessage), typeDiscriminator: "node")]
 [JsonDerivedType(typeof(ManyNodesMessage), typeDiscriminator: "manyNodes")]
+[JsonDerivedType(typeof(FullTextMessage), typeDiscriminator: "fullText")]
 [JsonDerivedType(typeof(ReadyMessage), typeDiscriminator: "ready")]
 [JsonDerivedType(typeof(DoneMessage), typeDiscriminator: "done")]
 internal class Message
@@ -45,6 +46,12 @@ internal class ManyNodesMessage : Message
 {
     public int RequestId { get; set; }
     public Node[] Nodes { get; set; }
+}
+
+internal class FullTextMessage : Message
+{
+    public int RequestId { get; set; }
+    public string FullText { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
@@ -90,6 +97,12 @@ internal class Sender
             stream.Write(span);
             offset += span.Length;
         }
+        stream.Flush();
+    }
+
+    public void SendFullText(FullTextMessage message)
+    {
+        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
         stream.Flush();
     }
 }

@@ -3,7 +3,7 @@ import { NodeId, Node } from "../shared/model";
 
 import { findNode } from "./node-mapper";
 
-import { requestNodeSummary } from "./post-to-vs";
+import { requestNodeSummary, requestFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
@@ -86,9 +86,9 @@ export class NodeTreeRenderer {
     }
 
     async onClickAbridgedDetails(node: Node): Promise<void> {
-        // TODO: request abridged node's full content and display it in the sideview
+        const text = await requestFullText(node.nodeId); // FIXME: cache replies
         this.sideViewController.toggleSideview(node.nodeId);
-        await this.sideViewController.setContent(node.nodeId);
+        await this.sideViewController.setContent(node.nodeId, text);
     }
 
 

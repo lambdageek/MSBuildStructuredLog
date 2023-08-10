@@ -70,6 +70,7 @@ export class MSBuildLogViewerController implements DisposableLike {
             }
             case 'node':
             case 'manyNodes':
+            case 'nodeFullText':
             case 'summarizeNode': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
@@ -97,6 +98,14 @@ export class MSBuildLogViewerController implements DisposableLike {
                             type: 'manyNodes',
                             requestId,
                             nodes: summaryNodes.nodes,
+                        }
+                        break;
+                    case 'nodeFullText':
+                        const fullText = await this.document.requestNodeFullText(id);
+                        reply = {
+                            type: 'fullText',
+                            requestId,
+                            fullText: fullText.fullText,
                         }
                         break;
                     default:

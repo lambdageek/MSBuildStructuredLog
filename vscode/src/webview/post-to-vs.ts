@@ -1,7 +1,7 @@
 
 import * as req from '../shared/webview-to-code';
 import { NodeId } from '../shared/model';
-import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply } from '../shared/code-to-webview';
+import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply, CodeToWebviewFullTextReply } from '../shared/code-to-webview';
 
 import { SyncRequestDispatch } from '../shared/sync-request';
 
@@ -51,4 +51,11 @@ export async function requestRoot(): Promise<NodeId> {
     const node = await promise;
     addNodeToMap(node.node);
     return node.node.nodeId;
+}
+
+export async function requestFullText(nodeId: NodeId): Promise<string> {
+    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewFullTextReply>();
+    postToVs({ type: 'nodeFullText', nodeId, requestId });
+    const reply = await promise;
+    return reply.fullText;
 }

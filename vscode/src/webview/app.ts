@@ -1,8 +1,5 @@
 // This is the JS we will load into the webview
 
-// import type { LogModel } from '../shared/model';
-
-
 import { assertNever } from '../shared/assert-never';
 
 import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
@@ -88,6 +85,12 @@ class App {
                 }
                 case 'node':
                 case 'manyNodes':
+                    {
+                        const reply = ev.data;
+                        satisfyRequest(reply.requestId, reply);
+                        break;
+                    }
+                case 'fullText':
                     {
                         const reply = ev.data;
                         satisfyRequest(reply.requestId, reply);

@@ -42,7 +42,13 @@ export interface CodeToWebviewManyNodesReply extends CodeToWebviewReplyBase {
     nodes: Node[];
 }
 
+export interface CodeToWebviewFullTextReply extends CodeToWebviewReplyBase {
+    type: 'fullText';
+    fullText: string;
+}
+
 export type CodeToWebviewReply =
     CodeToWebviewNodeReply
     | CodeToWebviewManyNodesReply
+    | CodeToWebviewFullTextReply
     ;

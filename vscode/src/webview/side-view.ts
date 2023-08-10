@@ -23,7 +23,14 @@ export class SideViewController {
         }
     }
 
-    async setContent(nodeId: NodeId): Promise<void> {
-        this.sideView.innerHTML = `<p>Showing details for Node ${nodeId}</p>`;
+    async setContent(nodeId: NodeId, text?: string): Promise<void> {
+        if (!text) {
+            this.sideView.innerHTML = `<p>Showing details for Node ${nodeId}</p>`;
+        } else {
+            const pre = document.createElement('pre');
+            pre.setAttribute('class', 'side-view-full-text');
+            pre.appendChild(document.createTextNode(text));
+            this.sideView.replaceChildren(pre);
+        }
     }
 }

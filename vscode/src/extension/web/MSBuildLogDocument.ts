@@ -27,9 +27,27 @@ interface WasmToCodeManyNodesReply extends WasmToCodeMessage {
     nodes: Node[];
 }
 
+interface WasmToCodeFullTextReply extends WasmToCodeMessage {
+    type: 'fullText';
+    requestId: number;
+    fullText: string;
+}
+
+interface WasmToCodeReady extends WasmToCodeMessage {
+    type: 'ready';
+}
+
+interface WasmToCodeDone extends WasmToCodeMessage {
+    type: 'done';
+}
+
+type WasmToCodeEvent =
+    WasmToCodeReady | WasmToCodeDone;
+
 type WasmToCodeReply =
     WasmToCodeNodeReply
     | WasmToCodeManyNodesReply
+    | WasmToCodeFullTextReply
     ;
 
 function isWasmToCodeMessage(x: unknown): x is WasmToCodeMessage {
@@ -61,11 +79,17 @@ interface CodeToWasmSummarizeNodeCommand extends CodeToWasmCommandBase {
     nodeId: NodeId;
 }
 
+interface CodeToWasmNodeFullTextCommand extends CodeToWasmCommandBase {
+    command: 'nodeFullText';
+    nodeId: NodeId;
+}
+
 type CodeToWasmCommand =
     CodeToWasmRootCommand
     | CodeToWasmNodeCommand
     | CodeToWasmManyNodesCommand
     | CodeToWasmSummarizeNodeCommand
+    | CodeToWasmNodeFullTextCommand
     ;
 
 export class MSBuildLogDocument implements vscode.CustomDocument {
@@ -88,9 +112,10 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
     get state(): WasmState { return this._engine.state; }
     isLive(): boolean { return this._engine.isLive(); }
 
-    gotStdOut(value: unknown) {
-        this.out.info(`received from wasm process: ${value}`);
-        if (isWasmToCodeMessage(value)) {
+    gotStdOut(v: unknown) {
+        this.out.info(`received from wasm process: ${v}`);
+        if (isWasmToCodeMessage(v)) {
+            const value = v as WasmToCodeReply | WasmToCodeEvent;
             switch (value.type) {
                 case 'ready':
                     this.out.info(`wasm process signalled Ready`);
@@ -106,8 +131,14 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                     const requestId = nodeReply.requestId;
                     this._requestDispatch.satisfy(requestId, nodeReply);
                     break;
+                case 'fullText':
+                    const fullTextReply = value as WasmToCodeFullTextReply;
+                    const fullTextRequestId = fullTextReply.requestId;
+                    this._requestDispatch.satisfy(fullTextRequestId, fullTextReply);
+                    break;
                 default:
-                    this.out.warn(`received unknown message from wasm: ${value.type}`);
+                    assertNever(value);
+                    this.out.warn(`received unknown message from wasm: ${(<any>value).type}`);
                     break;
             }
         }
@@ -132,6 +163,9 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                 extra = `${c.nodeId}\n${c.count}\n`;
                 break;
             case 'summarizeNode':
+                extra = `${c.nodeId}\n`;
+                break;
+            case 'nodeFullText':
                 extra = `${c.nodeId}\n`;
                 break;
             default:
@@ -183,6 +217,17 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         if (n.type != 'manyNodes')
             throw Error(`expected reply type 'manyNodes', but got ${n.type}`);
         this.out.info(`got many nodes requestId=${requestId} nodes.length=${n.nodes.length}`);
+        return n;
+    }
+
+    async requestNodeFullText(nodeId: NodeId): Promise<WasmToCodeFullTextReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeFullTextReply>();
+        this.out.info(`requested id=${requestId} full text`);
+        await this.postCommand({ requestId, command: 'nodeFullText', nodeId });
+        const n = await replyPromise;
+        if (n.type != 'fullText')
+            throw Error(`expected reply type 'fullText', but got ${n.type}`);
+        this.out.info(`got full text requestId=${requestId} fullText.length=${n.fullText.length}`);
         return n;
     }
 

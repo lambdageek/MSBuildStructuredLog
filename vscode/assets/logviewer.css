@@ -1,13 +1,26 @@
 .error {
     color: var(--vscode-errorForeground);
 }
+body {
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+div#content {
+    padding: 0;
+    margin: 0;
+    height: 100vh;
+}
 div.treeNode {
     padding-top: 1ex;
     padding-left: 2em;
 }
 div#grid-column-parent {
     display: grid;
-    grid-template-columns: 3fr 1fr;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, calc(100vh - 10ex));
+        /* HACK: 10ex is enough for the status bar */
     margin-top: 4ex;
     margin-left: 2ex;
     margin-right: 2ex;
@@ -22,19 +35,20 @@ div#mainApp {
     font-size: smaller;
 }
 
+pre.side-view-full-text {}
 div#side-view {
     display: none;
     grid-area: side;
     margin: 0;
     padding: 1ex;
-    border: 1px dashed red;
+    overflow: scroll;
 }
 div#logview-root-node {
     grid-area: main;
         margin: 0;
         padding: 1ex;
     white-space: pre-wrap;
-    border: 1px dashed red;
+    overflow: scroll;
 }
 span.nodeKind {
     font-size: xx-small;
