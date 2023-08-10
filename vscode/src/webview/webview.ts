@@ -2,82 +2,53 @@
 
 // import type { LogModel } from '../shared/model';
 
-import { SyncRequestDispatch } from '../shared/sync-request';
 
-import { NodeId, Node } from '../shared/model';
+import { NodeId } from '../shared/model';
 
 import { assertNever } from '../shared/assert-never';
 
-import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply } from '../shared/code-to-webview';
+import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
 
-import * as req from '../shared/webview-to-code';
+import { findNode } from './node-mapper';
 
-let sideviewOpen = false;
+import { requestRoot, requestNodeSummary, postToVs, satisfyRequest } from './post-to-vs';
+
+let sideviewOpen: false | { nodeId: NodeId } = false;
 let gridColumnParent: HTMLDivElement | null = null;
 let sideview: HTMLDivElement | null = null;
 
-function toggleSideview() {
+function ensureSideview() {
     if (!gridColumnParent) {
         gridColumnParent = <HTMLDivElement>document.getElementById('grid-column-parent');
     }
     if (!sideview) {
         sideview = <HTMLDivElement>document.getElementById('side-view');
     }
-    if (sideviewOpen) {
-        gridColumnParent.setAttribute('class', 'side-view-closed');
-        sideview.style.display = 'none';
-        sideviewOpen = false;
+}
+
+function closeSideview() {
+    ensureSideview();
+    gridColumnParent!.setAttribute('class', 'side-view-closed');
+    sideview!.style.display = 'none';
+    sideviewOpen = false;
+}
+
+function toggleSideview(nodeId: NodeId) {
+    ensureSideview();
+    // if the view is currently open and showing the same node, close it
+    // otherwise open it to the new node
+    if (sideviewOpen && sideviewOpen.nodeId === nodeId) {
+        closeSideview();
     } else {
-        gridColumnParent.setAttribute('class', 'side-view-open');
-        sideview.style.display = 'block';
-        sideviewOpen = true;
-    }
-}
-
-const vscode = acquireVsCodeApi<void>();
-
-function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeRequest | req.WebviewToCodeReply) {
-    vscode.postMessage(message);
-}
-
-const nodeMap = new Map<NodeId, Node>();
-
-function addNodeToMap(node: Node) {
-    const fullyExplored = node.fullyExplored ?? false;
-    if (fullyExplored || !nodeMap.has(node.nodeId))
-        nodeMap.set(node.nodeId, node);
-}
-
-const requestDispatch = new SyncRequestDispatch<CodeToWebviewReply>();
-
-// async function requestNode(nodeId: NodeId): Promise<void> {
-//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
-//     postToVs({ type: 'node', nodeId, requestId });
-//     const node = await promise;
-//     addNodeToMap(node.node);
-// }
-
-// async function requestManyNodes(nodeId: NodeId, count: number = 50): Promise<void> {
-//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
-//     postToVs({ type: 'manyNodes', nodeId, count, requestId });
-//     const nodes = await promise;
-//     for (const node of nodes.nodes) {
-//         addNodeToMap(node);
-//     }
-// }
-
-async function requestNodeSummary(nodeId: NodeId): Promise<void> {
-    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
-    postToVs({ type: 'summarizeNode', nodeId, requestId });
-    const nodes = await promise;
-    for (const node of nodes.nodes) {
-        addNodeToMap(node);
+        gridColumnParent!.setAttribute('class', 'side-view-open');
+        sideview!.style.display = 'block';
+        sideviewOpen = { nodeId };
     }
 }
 
 
 function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undefined) {
-    const node = nodeMap.get(nodeId);
+    const node = findNode(nodeId);
     if (node === undefined) {
         const button = document.createElement('button');
         button.setAttribute('type', 'button');
@@ -119,7 +90,8 @@ function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undef
             nodeSummaryAbridged.appendChild(document.createTextNode(' 🔍'));
             nodeSummaryAbridged.addEventListener('click', async () => {
                 // TODO: request abridged node's full content and display it in the sideview
-                toggleSideview(); // FIXME: this should force the sideview to open unless we're already showing the current node.
+                toggleSideview(node.nodeId);
+                sideview!.innerHTML = `<p>Showing details for Node ${node.nodeId}</p>`;
             });
         }
         const nodeSummary = document.createElement('p');
@@ -155,14 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function requestRoot(): Promise<void> {
-        const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
-        postToVs({ type: 'root', requestId });
-        const node = await promise;
+    async function requestRootAndRefresh() {
+        const nodeId = await requestRoot();
         if (rootId < 0) {
-            rootId = node.node.nodeId;
+            rootId = nodeId;
         }
-        addNodeToMap(node.node);
         await requestNodeSummary(rootId);
         refresh();
     }
@@ -180,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     switch (ev.data.state) {
                         case 'ready': {
                             mainAppDiv.innerHTML = `<p>Loaded ${binlogFsPath}</p>`;
-                            queueMicrotask(() => requestRoot());
+                            queueMicrotask(() => requestRootAndRefresh());
                             break;
                         }
                         case 'done': {
@@ -204,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'manyNodes':
                     {
                         const reply = ev.data;
-                        requestDispatch.satisfy(reply.requestId, reply);
+                        satisfyRequest(reply.requestId, reply);
                         break;
                     }
                 default:
@@ -216,5 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.addEventListener('message', messageHandler);
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+            closeSideview();
+        }
+    });
     postToVs({ type: 'contentLoaded' });
 });
