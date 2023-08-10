@@ -9,9 +9,8 @@ import { assertNever } from '../shared/assert-never';
 
 import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
 
-import { findNode } from './node-mapper';
-
 import { requestRoot, requestNodeSummary, postToVs, satisfyRequest } from './post-to-vs';
+import { NodeTreeRenderer } from './node-tree-renderer';
 
 let sideviewOpen: false | { nodeId: NodeId } = false;
 let gridColumnParent: HTMLDivElement | null = null;
@@ -19,121 +18,52 @@ let sideview: HTMLDivElement | null = null;
 
 function ensureSideview() {
     if (!gridColumnParent) {
-        gridColumnParent = <HTMLDivElement>document.getElementById('grid-column-parent');
+        gridColumnParent = document.getElementById('grid-column-parent') as HTMLDivElement;
     }
     if (!sideview) {
-        sideview = <HTMLDivElement>document.getElementById('side-view');
+        sideview = document.getElementById('side-view') as HTMLDivElement;
     }
 }
 
-function closeSideview() {
-    ensureSideview();
-    gridColumnParent!.setAttribute('class', 'side-view-closed');
-    sideview!.style.display = 'none';
-    sideviewOpen = false;
-}
+const sideViewController = {
+    closeSideview() {
+        ensureSideview();
+        gridColumnParent!.setAttribute('class', 'side-view-closed');
+        sideview!.style.display = 'none';
+        sideviewOpen = false;
+    },
 
-function toggleSideview(nodeId: NodeId) {
-    ensureSideview();
-    // if the view is currently open and showing the same node, close it
-    // otherwise open it to the new node
-    if (sideviewOpen && sideviewOpen.nodeId === nodeId) {
-        closeSideview();
-    } else {
-        gridColumnParent!.setAttribute('class', 'side-view-open');
-        sideview!.style.display = 'block';
-        sideviewOpen = { nodeId };
-    }
-}
+    toggleSideview(nodeId: NodeId) {
+        ensureSideview();
+        // if the view is currently open and showing the same node, close it
+        // otherwise open it to the new node
+        if (sideviewOpen && sideviewOpen.nodeId === nodeId) {
+            sideViewController.closeSideview();
+        } else {
+            gridColumnParent!.setAttribute('class', 'side-view-open');
+            sideview!.style.display = 'block';
+            sideviewOpen = { nodeId };
+        }
+    },
 
-
-function paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undefined) {
-    const node = findNode(nodeId);
-    if (node === undefined) {
-        const button = document.createElement('button');
-        button.setAttribute('type', 'button');
-        button.addEventListener('click', async () => {
-            await requestNodeSummary(nodeId);
-            container.removeChild(button);
-            paintNode(nodeId, container);
-        });
-        button.textContent = `${nodeId}`;
-        container.appendChild(button);
-    } else {
-        let childrenDest = container;
-        let summaryDest = container;
-        if (node.children && node.children.length > 0) {
-            const details = document.createElement('details');
-            if (open === 'open') {
-                details.setAttribute('open', '');
-            }
-            const fullyExplored = node.fullyExplored ?? false;
-            container.appendChild(details);
-            if (!fullyExplored) {
-                details.addEventListener('toggle', async (ev) => {
-                    if (details.getAttribute('open') === '') {
-                        ev.preventDefault();
-                        await requestNodeSummary(nodeId);
-                        container.removeChild(details);
-                        paintNode(nodeId, container, 'open');
-                    }
-                }, { once: true });
-            }
-            summaryDest = document.createElement('summary');
-            details.appendChild(summaryDest);
-            childrenDest = details;
-        }
-        let nodeSummaryAbridged: HTMLSpanElement | null = null;
-        if (node.abridged) {
-            nodeSummaryAbridged = document.createElement('span');
-            nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
-            nodeSummaryAbridged.appendChild(document.createTextNode(' 🔍'));
-            nodeSummaryAbridged.addEventListener('click', async () => {
-                // TODO: request abridged node's full content and display it in the sideview
-                toggleSideview(node.nodeId);
-                sideview!.innerHTML = `<p>Showing details for Node ${node.nodeId}</p>`;
-            });
-        }
-        const nodeSummary = document.createElement('p');
-        nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}`);
-        nodeSummary.innerHTML = `<span class='nodeKind'>${node.nodeKind}</span>${node.summary}`;
-        if (nodeSummaryAbridged) {
-            nodeSummary.appendChild(nodeSummaryAbridged);
-        }
-        summaryDest.appendChild(nodeSummary);
-        if ((node.fullyExplored ?? false) && node.children && node.children.length > 0) {
-            for (let i = 0; i < node.children.length; i++) {
-                const childBox = document.createElement('div');
-                childBox.setAttribute('class', 'treeNode');
-                childrenDest.appendChild(childBox);
-                paintNode(node.children[i], childBox);
-            }
-        }
+    async setContent(nodeId: NodeId): Promise<void> {
+        sideview!.innerHTML = `<p>Showing details for Node ${nodeId}</p>`;
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const mainAppDiv = document.getElementById('main-app') as HTMLDivElement;
     const rootDiv = document.getElementById('logview-root-node') as HTMLDivElement;
-    let rootId = -1;
+    const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
     let binlogFsPath = '';
     if (!mainAppDiv || !rootDiv)
         throw new Error("no main-app!");
 
-    function refresh() {
-        if (rootId != -1) {
-            rootDiv.setAttribute('class', 'treeNode');
-            paintNode(rootId, rootDiv, 'open');
-        }
-    }
-
     async function requestRootAndRefresh() {
         const nodeId = await requestRoot();
-        if (rootId < 0) {
-            rootId = nodeId;
-        }
-        await requestNodeSummary(rootId);
-        refresh();
+        renderer.setRootId(nodeId);
+        await requestNodeSummary(nodeId);
+        renderer.refresh();
     }
 
     function messageHandler(ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void {
@@ -187,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('message', messageHandler);
     document.addEventListener('keydown', (ev) => {
         if (ev.key === 'Escape') {
-            closeSideview();
+            sideViewController.closeSideview();
         }
     });
     postToVs({ type: 'contentLoaded' });
