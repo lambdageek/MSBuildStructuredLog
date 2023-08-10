@@ -52,7 +52,7 @@ const sharedWebviewOptions = {
 
 /** @type BuildOptions */
 const webviewOptions = {
-  entryPoints: ["src/webview/webview.ts"],
+  entryPoints: ["src/webview/app.ts"],
   outfile: "dist/webview/webview.js",
   format: "iife",
   ...sharedWebviewOptions,
