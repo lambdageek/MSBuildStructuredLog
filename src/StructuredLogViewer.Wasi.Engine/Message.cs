@@ -9,6 +9,7 @@ namespace StructuredLogViewer.Wasi.Engine;
 [JsonDerivedType(typeof(NodeMessage), typeDiscriminator: "node")]
 [JsonDerivedType(typeof(ManyNodesMessage), typeDiscriminator: "manyNodes")]
 [JsonDerivedType(typeof(FullTextMessage), typeDiscriminator: "fullText")]
+[JsonDerivedType(typeof(SearchResultsMessage), typeDiscriminator: "searchResults")]
 [JsonDerivedType(typeof(ReadyMessage), typeDiscriminator: "ready")]
 [JsonDerivedType(typeof(DoneMessage), typeDiscriminator: "done")]
 internal class Message
@@ -36,6 +37,12 @@ internal class Node
 
 }
 
+internal class SearchResult
+{
+    public int NodeId { get; set; }
+    public int[] Ancestors { get; set; }
+}
+
 internal class NodeMessage : Message
 {
     public int RequestId { get; set; }
@@ -52,6 +59,12 @@ internal class FullTextMessage : Message
 {
     public int RequestId { get; set; }
     public string FullText { get; set; }
+}
+
+internal class SearchResultsMessage : Message
+{
+    public int RequestId { get; set; }
+    public SearchResult[] Results { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
@@ -84,25 +97,38 @@ internal class Sender
         stream.Flush();
     }
 
-    public void SendNodes(ManyNodesMessage message)
+    private void BigMessage(ReadOnlySpan<byte> bs)
     {
-        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
-        var bs = System.Text.Encoding.UTF8.GetBytes(s);
-        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
         int offset = 0;
         //HACK: vscode-wasi can't handle more than 16kB writes at once to a pipe or character device
         while (offset < bs.Length)
         {
-            var span = new ReadOnlySpan<byte>(bs, offset, Math.Min(bs.Length - offset, 16384));
+            var span = bs.Slice(offset, Math.Min(bs.Length - offset, 16384));
             stream.Write(span);
             offset += span.Length;
         }
         stream.Flush();
     }
 
+    public void SendNodes(ManyNodesMessage message)
+    {
+        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
+        var bs = System.Text.Encoding.UTF8.GetBytes(s);
+        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
+        BigMessage(bs);
+    }
+
     public void SendFullText(FullTextMessage message)
     {
         JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
         stream.Flush();
+    }
+
+    public void SendSearchResults(SearchResultsMessage message)
+    {
+        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
+        var bs = System.Text.Encoding.UTF8.GetBytes(s);
+        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
+        BigMessage(bs);
     }
 }

@@ -133,6 +133,7 @@ export class MSBuildLogViewer implements DisposableLike {
                 case 'manyNodes':
                 case 'summarizeNode':
                 case 'nodeFullText':
+                case 'search':
                     this._onWebviewRequest.fire(e);
                     break;
                 default:

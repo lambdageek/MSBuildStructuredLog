@@ -9,5 +9,10 @@ export interface Node {
     fullyExplored?: boolean;
     abridged?: boolean;
     nodeKind: string;
-    children?: [NodeId];
+    children?: NodeId[];
+}
+
+export interface SearchResult {
+    nodeId: NodeId;
+    ancestors: NodeId[];
 }

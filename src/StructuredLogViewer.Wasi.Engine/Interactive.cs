@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 
 using Microsoft.Build.Logging.StructuredLogger;
 
@@ -140,6 +141,17 @@ public sealed class Interactive : IDisposable
                 {
                     throw new InvalidOperationException("can't parse  nodeFullText id");
                 }
+            case Command.Search:
+                {
+                    var queryString = Console.ReadLine(); // FIXME: unescape?
+                    var results = RunSearch(queryString);
+                    _sender.SendSearchResults(new SearchResultsMessage()
+                    {
+                        RequestId = requestId,
+                        Results = results,
+                    });
+                    break;
+                }
             default:
                 throw new UnreachableException("should not get here");
         }
@@ -179,6 +191,9 @@ public sealed class Interactive : IDisposable
                 return true;
             case "nodeFullText":
                 command = Command.NodeFullText;
+                return true;
+            case "search":
+                command = Command.Search;
                 return true;
             default:
                 command = default;
@@ -308,6 +323,36 @@ public sealed class Interactive : IDisposable
         return nodes;
     }
 
+    private Search? _search = null;
+
+    private SearchResult[] RunSearch(string query)
+    {
+        if (_search == null)
+        {
+            _search = new Search(
+                    new[] { _build },
+                    _build.StringTable.Instances,
+                    5000,
+                    false
+                    //, Build.StringTable // disable validation in production
+                    );
+        }
+        var results = _search.FindNodes(query, System.Threading.CancellationToken.None);
+        return FormatResults(results).ToArray();
+
+        IEnumerable<SearchResult> FormatResults(IEnumerable<StructuredLogViewer.SearchResult> results)
+        {
+            foreach (var r in results)
+            {
+                yield return new SearchResult()
+                {
+                    NodeId = _nodeIds.GetOrAssignId(r.Node),
+                    Ancestors = r.Node.GetParentChainExcludingThis().Select(n => _nodeIds.GetOrAssignId(n)).ToArray(),
+                };
+            }
+        }
+    }
+
     enum Command
     {
         None = 0,
@@ -317,6 +362,7 @@ public sealed class Interactive : IDisposable
         ManyNodes,
         SummarizeNode,
         NodeFullText,
+        Search,
     }
 
 

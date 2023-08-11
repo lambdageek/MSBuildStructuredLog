@@ -9,52 +9,13 @@ import { LayoutController } from './layout-controller';
 import { NodeTreeRenderer } from './node-tree-renderer';
 import { SideViewController } from './side-view';
 
+import { SearchController } from './search';
+
 function findFatal<T extends HTMLElement = HTMLDivElement>(id: string): T {
     const elem = document.getElementById(id) as T;
     if (!elem)
         throw new Error(`No div with id ${id}`);
     return elem;
-}
-
-class SearchController {
-    constructor(readonly searchInput: HTMLInputElement, readonly searchButton: HTMLButtonElement,
-        readonly searchResults: HTMLDivElement, readonly layoutController: LayoutController) {
-        this.searchButton.addEventListener('click', () => this.onSearch());
-        this.searchInput.addEventListener('keydown', (ev) => this.onKeyDown(ev));
-    }
-
-    onReady() {
-        this.setSearchControlsActive(true);
-    }
-
-    private setSearchControlsActive(enable: boolean) {
-        this.searchInput.disabled = !enable;
-        this.searchButton.disabled = !enable;
-    }
-
-    private onSearch() {
-        const text = this.searchInput.value;
-        if (text) {
-            // toggle view to open search
-            this.searchResults.replaceChildren(document.createTextNode(`Searching for ${text}...`));
-            this.layoutController.openSearchResults();
-            this.setSearchControlsActive(false);
-            setTimeout(() => {
-                this.setSearchControlsActive(true);
-            }, 5000);
-        } else {
-            // toggle view to close search
-            this.layoutController.closeSearchResults();
-            this.searchResults.replaceChildren();
-        }
-    }
-
-    private onKeyDown(ev: KeyboardEvent) {
-        if (ev.key === 'Enter') {
-            this.onSearch();
-            ev.preventDefault();
-        }
-    }
 }
 
 class App {
@@ -141,6 +102,12 @@ class App {
                         break;
                     }
                 case 'fullText':
+                    {
+                        const reply = ev.data;
+                        satisfyRequest(reply.requestId, reply);
+                        break;
+                    }
+                case 'searchResults':
                     {
                         const reply = ev.data;
                         satisfyRequest(reply.requestId, reply);

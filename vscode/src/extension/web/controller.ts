@@ -11,7 +11,7 @@ import { assertNever } from "../../shared/assert-never";
 
 import { WebviewToCodeRequest, WebviewToCodeReply, WebviewToCodeContentLoaded } from "../../shared/webview-to-code";
 
-import { CodeToWebviewReply, CodeToWebviewNodeReply } from "../../shared/code-to-webview";
+import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewSearchResultsReply } from "../../shared/code-to-webview";
 
 import { WasmState } from "./wasm/engine";
 
@@ -114,6 +114,19 @@ export class MSBuildLogViewerController implements DisposableLike {
                         break;
                 }
                 this.out?.info(`posting node ${id} to webview ${JSON.stringify(reply)}`);
+                this.viewer.postToWebview(reply);
+                break;
+            }
+            case 'search': {
+                const requestId = e.requestId;
+                const query = e.query;
+                const results = await this.document.requestSearch(query);
+                const reply: CodeToWebviewSearchResultsReply = {
+                    type: 'searchResults',
+                    requestId,
+                    results: results.results,
+                }
+                //this.out?.info(`posting search results for ${query} to webview ${JSON.stringify(reply)}`);
                 this.viewer.postToWebview(reply);
                 break;
             }

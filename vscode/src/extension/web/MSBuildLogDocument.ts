@@ -2,7 +2,7 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import { NodeId, Node } from '../../shared/model';
+import { NodeId, Node, SearchResult } from '../../shared/model';
 import { DisposableLike } from '../../shared/disposable';
 import { SyncRequestDispatch } from '../../shared/sync-request';
 
@@ -33,6 +33,12 @@ interface WasmToCodeFullTextReply extends WasmToCodeMessage {
     fullText: string;
 }
 
+interface WasmToCodeSearchResultsReply extends WasmToCodeMessage {
+    type: 'searchResults';
+    requestId: number;
+    results: SearchResult[];
+}
+
 interface WasmToCodeReady extends WasmToCodeMessage {
     type: 'ready';
 }
@@ -48,6 +54,7 @@ type WasmToCodeReply =
     WasmToCodeNodeReply
     | WasmToCodeManyNodesReply
     | WasmToCodeFullTextReply
+    | WasmToCodeSearchResultsReply
     ;
 
 function isWasmToCodeMessage(x: unknown): x is WasmToCodeMessage {
@@ -84,12 +91,18 @@ interface CodeToWasmNodeFullTextCommand extends CodeToWasmCommandBase {
     nodeId: NodeId;
 }
 
+interface CodeToWasmSearchCommand extends CodeToWasmCommandBase {
+    command: 'search';
+    query: string;
+}
+
 type CodeToWasmCommand =
     CodeToWasmRootCommand
     | CodeToWasmNodeCommand
     | CodeToWasmManyNodesCommand
     | CodeToWasmSummarizeNodeCommand
     | CodeToWasmNodeFullTextCommand
+    | CodeToWasmSearchCommand
     ;
 
 export class MSBuildLogDocument implements vscode.CustomDocument {
@@ -136,6 +149,11 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                     const fullTextRequestId = fullTextReply.requestId;
                     this._requestDispatch.satisfy(fullTextRequestId, fullTextReply);
                     break;
+                case 'searchResults':
+                    const searchResultsReply = value as WasmToCodeSearchResultsReply;
+                    const searchResultsRequestId = searchResultsReply.requestId;
+                    this._requestDispatch.satisfy(searchResultsRequestId, searchResultsReply);
+                    break;
                 default:
                     assertNever(value);
                     this.out.warn(`received unknown message from wasm: ${(<any>value).type}`);
@@ -167,6 +185,9 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
                 break;
             case 'nodeFullText':
                 extra = `${c.nodeId}\n`;
+                break;
+            case 'search':
+                extra = `${c.query}\n`; // FIXME: escape query?
                 break;
             default:
                 assertNever(c);
@@ -231,6 +252,16 @@ export class MSBuildLogDocument implements vscode.CustomDocument {
         return n;
     }
 
+    async requestSearch(query: string): Promise<WasmToCodeSearchResultsReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeSearchResultsReply>();
+        this.out.info(`requested id=${requestId} search for ${query}`);
+        await this.postCommand({ requestId, command: 'search', query });
+        const n = await replyPromise;
+        if (n.type != 'searchResults')
+            throw Error(`expected reply type 'searchResults', but got ${n.type}`);
+        this.out.info(`got search results requestId=${requestId} results.length=${n.results.length}`);
+        return n;
+    }
 }
 
 export async function openMSBuildLogDocument(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<MSBuildLogDocument> {

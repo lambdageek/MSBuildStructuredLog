@@ -1,7 +1,7 @@
 
 import * as req from '../shared/webview-to-code';
-import { NodeId } from '../shared/model';
-import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply, CodeToWebviewFullTextReply } from '../shared/code-to-webview';
+import { NodeId, SearchResult } from '../shared/model';
+import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply, CodeToWebviewFullTextReply, CodeToWebviewSearchResultsReply } from '../shared/code-to-webview';
 
 import { SyncRequestDispatch } from '../shared/sync-request';
 
@@ -58,4 +58,11 @@ export async function requestFullText(nodeId: NodeId): Promise<string> {
     postToVs({ type: 'nodeFullText', nodeId, requestId });
     const reply = await promise;
     return reply.fullText;
+}
+
+export async function requestSearch(query: string): Promise<SearchResult[]> {
+    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewSearchResultsReply>();
+    postToVs({ type: 'search', query, requestId });
+    const reply = await promise;
+    return reply.results;
 }
