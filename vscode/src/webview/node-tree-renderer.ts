@@ -13,7 +13,7 @@ export class NodeTreeRenderer {
     private openPath: NodeId[] = [];
 
     clearHighlight() {
-        document.querySelectorAll('.highlighted').forEach((elem) => {
+        this.renderRoot.querySelectorAll('.highlighted').forEach((elem) => {
             elem.classList.remove('highlighted');
         });
         this.highlightedNode = -1;
@@ -128,7 +128,7 @@ export class NodeTreeRenderer {
         await this.ensureExplored(ancestors);
         this.highlight(ancestors, result);
         this.refresh();
-        document.querySelector(`[data-node-id="${result.nodeId.nodeId}"]`)?.scrollIntoView();
+        this.renderRoot.querySelector(`[data-node-id="${result.nodeId.nodeId}"]`)?.scrollIntoView();
     }
 
 }
