@@ -53,6 +53,52 @@ div#grid-column-parent.side-view-open.search-results-open {
         "status status status";
 }
 
+@media (max-width: 720px) {
+
+    /* single column */
+    div#grid-column-parent {
+        display: grid;
+        height: 100vh;
+        grid-template-columns: minmax(0, auto);
+        grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr) minmax(2ex, 6ex);
+        grid-template-areas:
+            "search"
+            "main"
+            "main"
+            "main"
+            "status";
+    }
+
+
+    div#grid-column-parent.side-view-open {
+        grid-template-areas:
+            "search"
+            "main"
+            "main"
+            "side"
+            "status";
+    }
+
+    div#grid-column-parent.search-results-open {
+        grid-template-areas:
+            "search"
+            "results"
+            "main"
+            "main"
+            "status";
+    }
+
+    div#grid-column-parent.side-view-open.search-results-open {
+        grid-template-areas:
+            "search"
+            "results"
+            "main"
+            "side"
+            "status";
+    }
+
+
+}
 
 div#status-line {
     grid-area: status;
