@@ -18,9 +18,9 @@ function findDivFatal(id: string): HTMLDivElement {
 class App {
     binlogFsPath: string = '';
 
-    constructor(readonly mainAppDiv: HTMLDivElement, readonly sideViewController: SideViewController, readonly renderer: NodeTreeRenderer) { }
+    constructor(readonly statusLineDiv: HTMLDivElement, readonly sideViewController: SideViewController, readonly renderer: NodeTreeRenderer) { }
     static create(): App {
-        const mainAppDiv = findDivFatal('main-app');
+        const statusLineDiv = findDivFatal('status-line');
         const rootDiv = findDivFatal('logview-root-node');
         const gridColumnParent = findDivFatal('grid-column-parent');
         const sideview = findDivFatal('side-view');
@@ -28,7 +28,7 @@ class App {
         const sideViewController = new SideViewController(sideview, gridColumnParent);
         const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
 
-        return new App(mainAppDiv, sideViewController, renderer);
+        return new App(statusLineDiv, sideViewController, renderer);
     }
 
     async requestRootAndRefresh() {
@@ -44,7 +44,7 @@ class App {
         if (options?.logLevel === 'error') {
             p.setAttribute('class', 'error');
         }
-        this.mainAppDiv.replaceChildren(p);
+        this.statusLineDiv.replaceChildren(p);
     }
 
     messageHandler(ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>, removeMessageHandler: () => void): void {

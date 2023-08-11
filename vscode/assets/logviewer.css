@@ -44,7 +44,7 @@ div#grid-column-parent.side-view-open {
         "status status";
 }
 
-div#mainApp {
+div#status-line {
     grid-area: status;
     font-size: smaller;
 }

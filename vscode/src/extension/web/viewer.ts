@@ -98,7 +98,7 @@ export class MSBuildLogViewer implements DisposableLike {
                     </div>
                     <div id="logview-root-node"></div>
                     <div id="side-view"></div>
-                    <div id="main-app">Starting binlog viewer for ${documentFilePath}...</div>
+                    <div id="status-line">Starting binlog viewer for ${documentFilePath}...</div>
                 </div>
             </div>
             <!-- script nonce="${nonce}" src="${scriptUri}" --><!-- /script -->
