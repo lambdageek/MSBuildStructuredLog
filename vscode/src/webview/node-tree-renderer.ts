@@ -58,7 +58,10 @@ export class NodeTreeRenderer {
             if (node.abridged) {
                 nodeSummaryAbridged = document.createElement('span');
                 nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
-                nodeSummaryAbridged.appendChild(document.createTextNode(' 🔍'));
+                const spyglassSpan = document.createElement('span');
+                spyglassSpan.setAttribute('class', 'spyglass');
+                spyglassSpan.appendChild(document.createTextNode(' 🔍'));
+                nodeSummaryAbridged.appendChild(spyglassSpan);
                 nodeSummaryAbridged.addEventListener('click', async () => this.onClickAbridgedDetails(node));
             }
             const nodeSummary = document.createElement('p');

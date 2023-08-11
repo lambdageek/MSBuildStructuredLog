@@ -5,30 +5,66 @@ import { assertNever } from '../shared/assert-never';
 import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
 
 import { requestRoot, requestNodeSummary, postToVs, satisfyRequest } from './post-to-vs';
+import { LayoutController } from './layout-controller';
 import { NodeTreeRenderer } from './node-tree-renderer';
 import { SideViewController } from './side-view';
 
-function findDivFatal(id: string): HTMLDivElement {
-    const div = document.getElementById(id) as HTMLDivElement;
-    if (!div)
+function findFatal<T extends HTMLElement = HTMLDivElement>(id: string): T {
+    const elem = document.getElementById(id) as T;
+    if (!elem)
         throw new Error(`No div with id ${id}`);
-    return div;
+    return elem;
+}
+
+class SearchController {
+    constructor(readonly searchInput: HTMLInputElement, readonly searchButton: HTMLButtonElement,
+        readonly searchResults: HTMLDivElement, readonly layoutController: LayoutController) {
+        this.searchButton.addEventListener('click', () => this.onSearch());
+        this.searchInput.addEventListener('keydown', (ev) => this.onKeyDown(ev));
+    }
+
+    private onSearch() {
+        const text = this.searchInput.value;
+        if (text) {
+            // toggle view to open search
+            this.searchResults.replaceChildren(document.createTextNode(`Searching for ${text}...`));
+            this.layoutController.openSearchResults();
+        } else {
+            // toggle view to close search
+            this.layoutController.closeSearchResults();
+            this.searchResults.replaceChildren();
+        }
+    }
+
+    private onKeyDown(ev: KeyboardEvent) {
+        if (ev.key === 'Enter') {
+            this.onSearch();
+            ev.preventDefault();
+        }
+    }
 }
 
 class App {
     binlogFsPath: string = '';
 
-    constructor(readonly statusLineDiv: HTMLDivElement, readonly sideViewController: SideViewController, readonly renderer: NodeTreeRenderer) { }
+    constructor(readonly statusLineDiv: HTMLDivElement, readonly layoutController: LayoutController,
+        readonly searchController: SearchController,
+        readonly renderer: NodeTreeRenderer) { }
     static create(): App {
-        const statusLineDiv = findDivFatal('status-line');
-        const rootDiv = findDivFatal('logview-root-node');
-        const gridColumnParent = findDivFatal('grid-column-parent');
-        const sideview = findDivFatal('side-view');
+        const statusLineDiv = findFatal('status-line');
+        const rootDiv = findFatal('logview-root-node');
+        const gridColumnParent = findFatal('grid-column-parent');
+        const sideview = findFatal('side-view');
+        const searchResults = findFatal('search-results');
+        const searchInput = findFatal<HTMLInputElement>('search-input');
+        const searchButton = findFatal<HTMLButtonElement>('search-button');
 
-        const sideViewController = new SideViewController(sideview, gridColumnParent);
+        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv, searchResults);
+        const searchController = new SearchController(searchInput, searchButton, searchResults, layoutController);
+        const sideViewController = new SideViewController(sideview, layoutController);
         const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
 
-        return new App(statusLineDiv, sideViewController, renderer);
+        return new App(statusLineDiv, layoutController, searchController, renderer);
     }
 
     async requestRootAndRefresh() {
@@ -110,8 +146,14 @@ class App {
 
     onKeyDown(ev: KeyboardEvent): void {
         if (ev.key === 'Escape') {
-            this.sideViewController.closeSideview();
-            ev.preventDefault();
+            // prefer closing the side view if it's open, otherwise close the search results
+            if (this.layoutController.sideViewOpen) {
+                this.layoutController.closeSideview();
+                ev.preventDefault();
+            } else if (this.layoutController.searchResultsOpen) {
+                this.layoutController.closeSearchResults();
+                ev.preventDefault();
+            }
         }
     }
 }

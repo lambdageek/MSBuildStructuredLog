@@ -23,26 +23,36 @@ div.treeNode {
 div#grid-column-parent {
     display: grid;
     height: 100vh;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr);
     grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(2ex, 6ex);
     grid-template-areas:
-        "search search"
-        "main main"
-        "status status";
+        "search search search"
+        "main main main"
+        "status status status";
 }
 
-
-
-summary:hover {
-    background-color: var(--vscode-list-hoverBackground);
-}
 
 div#grid-column-parent.side-view-open {
     grid-template-areas:
-        "search search"
-        "main side"
-        "status status";
+        "search search search"
+        "main main side"
+        "status status status";
 }
+
+div#grid-column-parent.search-results-open {
+    grid-template-areas:
+        "search search search"
+        "results main main"
+        "status status status";
+}
+
+div#grid-column-parent.side-view-open.search-results-open {
+    grid-template-areas:
+        "search search search"
+        "results main side"
+        "status status status";
+}
+
 
 div#status-line {
     grid-area: status;
@@ -51,7 +61,17 @@ div#status-line {
 
 div#search {
     grid-area: search;
+    margin: 0;
     padding: 1ex;
+}
+
+div#search-results {
+    grid-area: results;
+    display: none;
+    margin: 0;
+    padding: 1ex;
+    overflow: scroll;
+    border: 2px dashed red;
 }
 
 pre.side-view-full-text {}
@@ -75,6 +95,10 @@ div#logview-root-node {
     overflow: scroll;
 }
 
+span.spyglass:hover {
+    cursor: pointer;
+}
+
 span.nodeKind {
     font-size: xx-small;
     font-style: italic;
@@ -84,6 +108,11 @@ span.nodeKind {
 details>summary p {
     display: inline;
 }
+
+summary:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
 
 p.node-kind-Build span.nodeKind {
     display: none;

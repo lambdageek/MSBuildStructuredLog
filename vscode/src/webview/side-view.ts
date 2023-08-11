@@ -1,25 +1,21 @@
 
 import { NodeId } from "../shared/model";
+import { LayoutController } from "./layout-controller";
 
 export class SideViewController {
-    private sideViewOpen: false | { nodeId: NodeId } = false;
-    constructor(readonly sideView: HTMLDivElement, readonly gridColumnParent: HTMLDivElement) { }
+    private sideViewNodeId: NodeId | null = null;
+    constructor(readonly sideView: HTMLDivElement, readonly layoutController: LayoutController) { }
 
-    closeSideview() {
-        this.gridColumnParent.setAttribute('class', 'side-view-closed');
-        this.sideView.style.display = 'none';
-        this.sideViewOpen = false;
-    }
 
     toggleSideview(nodeId: NodeId) {
         // if the view is currently open and showing the same node, close it
         // otherwise open it to the new node
-        if (this.sideViewOpen && this.sideViewOpen.nodeId === nodeId) {
-            this.closeSideview();
+        if (this.layoutController.sideViewOpen && this.sideViewNodeId === nodeId) {
+            this.layoutController.closeSideview();
+            this.sideViewNodeId = null;
         } else {
-            this.gridColumnParent.setAttribute('class', 'side-view-open');
-            this.sideView.style.display = 'block';
-            this.sideViewOpen = { nodeId };
+            this.layoutController.openSideview();
+            this.sideViewNodeId = nodeId;
         }
     }
 
