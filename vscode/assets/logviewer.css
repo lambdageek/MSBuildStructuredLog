@@ -120,6 +120,18 @@ div#search-results {
     border: 2px dashed red;
 }
 
+input[type='text']:disabled {
+    color: var(--vscode-disabledForeground);
+}
+
+button#search-button:disabled {
+    cursor: wait;
+}
+
+button:disabled:hover {
+    background-color: var(--vscode-button-background);
+}
+
 pre.side-view-full-text {}
 
 div#side-view {

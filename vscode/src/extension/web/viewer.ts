@@ -93,8 +93,8 @@ export class MSBuildLogViewer implements DisposableLike {
             <div id="content">
                 <div id="grid-column-parent">
                     <div id="search">
-                        <input type="text" id="search-input" placeholder="Search" />
-                        <button id="search-button">Search</button>
+                        <input type="text" id="search-input" placeholder="Search" disabled />
+                        <button id="search-button" disabled>Search</button>
                     </div>
                     <div id="logview-root-node"></div>
                     <div id="side-view"></div>
