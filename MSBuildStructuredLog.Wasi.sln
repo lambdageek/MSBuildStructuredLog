@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{53E8CF57-33E6-4AB2-ACD7-BA2AD671DBB5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StructuredLogViewer.Wasi.Engine", "src\StructuredLogViewer.Wasi.Engine\StructuredLogViewer.Wasi.Engine.csproj", "{EBEB8C6A-746A-4EEB-9FC9-5C02EC788B29}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StructuredLogViewer.Vscode.Engine", "src\StructuredLogViewer.Vscode.Engine\StructuredLogViewer.Vscode.Engine.csproj", "{EBEB8C6A-746A-4EEB-9FC9-5C02EC788B29}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StructuredLogger", "src\StructuredLogger\StructuredLogger.csproj", "{BA49BAEC-D3D6-4EF7-947A-9DD0848ACE31}"
 EndProject

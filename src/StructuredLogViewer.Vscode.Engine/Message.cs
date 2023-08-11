@@ -3,7 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace StructuredLogViewer.Wasi.Engine;
+namespace StructuredLogViewer.Vscode.Engine;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(NodeMessage), typeDiscriminator: "node")]

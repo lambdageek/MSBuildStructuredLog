@@ -283,11 +283,11 @@ export async function openMSBuildLogDocument(context: vscode.ExtensionContext, u
         },
         rootFileSystem
     };
-    const path = Uri.joinPath(context.extensionUri, 'dist', 'StructuredLogViewer.Wasi.Engine.wasm');
+    const path = Uri.joinPath(context.extensionUri, 'dist', 'StructuredLogViewer.Vscode.Engine.wasm');
     const moduleBytes = await vscode.workspace.fs.readFile(path);
     const module = await WebAssembly.compile(moduleBytes);
     out.info('creating process')
-    const process = await wasm.createProcess('StructuredLogViewer.Wasi.Engine', module, options);
+    const process = await wasm.createProcess('StructuredLogViewer.Vscode.Engine', module, options);
     const engine = new WasmEngine(process, out);
     out.info('process created')
     return new MSBuildLogDocument(uri, engine, out);

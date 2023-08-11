@@ -1,11 +1,11 @@
 
 using System;
 using System.IO;
-using StructuredLogViewer.Wasi.Engine;
+using StructuredLogViewer.Vscode.Engine;
 
 if (args.Length < 2 || !string.Equals(args[0], "interactive", StringComparison.OrdinalIgnoreCase))
 {
-    Console.Error.WriteLine("usage: StructuredLogViewer.Wasi.Engine interactive FILE.binlog");
+    Console.Error.WriteLine("usage: StructuredLogViewer.Vscode.Engine interactive FILE.binlog");
     return 1;
 }
 

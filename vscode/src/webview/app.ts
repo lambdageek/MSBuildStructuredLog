@@ -89,12 +89,12 @@ class App {
                             break;
                         }
                         case 'done': {
-                            this.setStatus("StructuredLogViewer.Wasi.Engine finished");
+                            this.setStatus("StructuredLogViewer.Vscode.Engine finished");
                             removeMessageHandler();
                             break;
                         }
                         case 'faulted': {
-                            this.setStatus("StructuredLogViewer.Wasi.Engine faulted", { logLevel: 'error' });
+                            this.setStatus("StructuredLogViewer.Vscode.Engine faulted", { logLevel: 'error' });
                             removeMessageHandler();
                             break;
                         }

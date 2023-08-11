@@ -36,11 +36,11 @@
 		]
 	},
 	"scripts": {
-		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Wasi.Engine ../obj/StructuredLogViewer.Wasi.Engine",
+		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Vscode.Engine ../obj/StructuredLogViewer.Vscode.Engine",
 		"compile:ts": "tsc -b tsconfig.json",
 		"build": "npm run build:dotnet && npm run build:js",
 		"build:js": "npm run compile:ts && npm run build:esbuild",
-		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release ../src/StructuredLogViewer.Wasi.Engine/StructuredLogViewer.Wasi.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
+		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
 		"package": "vsce package --pre-release",

@@ -7,7 +7,7 @@ using System.Linq;
 using Microsoft.Build.Logging.StructuredLogger;
 
 
-namespace StructuredLogViewer.Wasi.Engine;
+namespace StructuredLogViewer.Vscode.Engine;
 
 public sealed class Interactive : IDisposable
 {
