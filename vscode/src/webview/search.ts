@@ -1,13 +1,20 @@
 
-import { SearchResult } from '../shared/model';
+import { SearchResult, FullyExploredNode } from '../shared/model';
 import { LayoutController } from './layout-controller';
 import { requestSearch } from './post-to-vs';
+import { NodeMapper } from './node-mapper';
 
 export class SearchController {
-    constructor(readonly searchInput: HTMLInputElement, readonly searchButton: HTMLButtonElement,
+    constructor(readonly nodeMapper: NodeMapper, readonly searchInput: HTMLInputElement, readonly searchButton: HTMLButtonElement,
         readonly searchResults: HTMLDivElement, readonly layoutController: LayoutController) {
         this.searchButton.addEventListener('click', () => this.onSearch());
-        this.searchInput.addEventListener('keydown', (ev) => this.onKeyDown(ev));
+        this.searchInput.addEventListener('keydown', (ev) => this.onSearchInputKeyDown(ev));
+    }
+
+    onSearchResultSelected: (result: SearchResult<FullyExploredNode>) => any = () => { };
+
+    clearSearchResults() {
+        this.searchResults.replaceChildren();
     }
 
     onReady() {
@@ -27,8 +34,9 @@ export class SearchController {
             this.layoutController.openSearchResults();
             this.setSearchControlsActive(false);
             const results = await requestSearch(text);
+            const resultSummary = await this.summarizeResults(results);
             this.setSearchControlsActive(true);
-            this.renderResults(results);
+            this.renderResults(resultSummary);
         } else {
             // toggle view to close search
             this.layoutController.closeSearchResults();
@@ -36,11 +44,33 @@ export class SearchController {
         }
     }
 
-    renderResults(results: SearchResult[]) {
-        this.searchResults.replaceChildren(document.createTextNode(`Found ${results.length} results`));
+    // ensure that each node in the results is fully explored
+    summarizeResults(results: SearchResult[]): Promise<SearchResult<FullyExploredNode>[]> {
+        return Promise.all(results.map(async (result) => {
+            const n = await this.nodeMapper.fullyExpore(result.nodeId);
+            return { ...result, nodeId: n };
+        }));
     }
 
-    private onKeyDown(ev: KeyboardEvent) {
+    renderResults(results: SearchResult<FullyExploredNode>[]) {
+        const ul = document.createElement('ul');
+        ul.setAttribute('class', 'search-results');
+        ul.setAttribute('tabindex', '0');
+        for (const result of results) {
+            const li = document.createElement('li');
+            li.setAttribute('class', 'search-result');
+            li.setAttribute('tabindex', '-1');
+            const text = document.createTextNode(`Node with id=${result.nodeId.nodeId} of kind ${result.nodeId.nodeKind}`);
+            li.appendChild(text);
+            li.addEventListener('click', () => {
+                this.onSearchResultSelected(result);
+            });
+            ul.appendChild(li);
+        }
+        this.searchResults.replaceChildren(ul);
+    }
+
+    private onSearchInputKeyDown(ev: KeyboardEvent) {
         if (ev.key === 'Enter') {
             this.onSearch();
             ev.preventDefault();

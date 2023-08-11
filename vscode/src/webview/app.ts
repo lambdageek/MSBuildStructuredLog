@@ -4,7 +4,8 @@ import { assertNever } from '../shared/assert-never';
 
 import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '../shared/code-to-webview';
 
-import { requestRoot, requestNodeSummary, postToVs, satisfyRequest } from './post-to-vs';
+import { NodeRequester, postToVs, satisfyRequest } from './post-to-vs';
+import { NodeMapper } from './node-mapper';
 import { LayoutController } from './layout-controller';
 import { NodeTreeRenderer } from './node-tree-renderer';
 import { SideViewController } from './side-view';
@@ -21,9 +22,11 @@ function findFatal<T extends HTMLElement = HTMLDivElement>(id: string): T {
 class App {
     binlogFsPath: string = '';
 
-    constructor(readonly statusLineDiv: HTMLDivElement, readonly layoutController: LayoutController,
+    constructor(readonly nodeRequester: NodeRequester, readonly statusLineDiv: HTMLDivElement, readonly layoutController: LayoutController,
         readonly searchController: SearchController,
-        readonly renderer: NodeTreeRenderer) { }
+        readonly renderer: NodeTreeRenderer) {
+
+    }
     static create(): App {
         const statusLineDiv = findFatal('status-line');
         const rootDiv = findFatal('logview-root-node');
@@ -33,18 +36,26 @@ class App {
         const searchInput = findFatal<HTMLInputElement>('search-input');
         const searchButton = findFatal<HTMLButtonElement>('search-button');
 
-        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv, searchResults);
-        const searchController = new SearchController(searchInput, searchButton, searchResults, layoutController);
-        const sideViewController = new SideViewController(sideview, layoutController);
-        const renderer = new NodeTreeRenderer(rootDiv, sideViewController);
+        const nodeMapper = new NodeMapper();
+        const nodeRequester = new NodeRequester(nodeMapper);
+        nodeMapper.requestNodeSummary = nodeRequester.requestNodeSummary.bind(nodeRequester);
 
-        return new App(statusLineDiv, layoutController, searchController, renderer);
+        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv, searchResults);
+        const searchController = new SearchController(nodeMapper, searchInput, searchButton, searchResults, layoutController);
+        const sideViewController = new SideViewController(sideview, layoutController);
+        const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, sideViewController);
+
+        searchController.onSearchResultSelected = (result) => {
+            renderer.selectSearchResult(result);
+        }
+
+        return new App(nodeRequester, statusLineDiv, layoutController, searchController, renderer);
     }
 
     async requestRootAndRefresh() {
-        const nodeId = await requestRoot();
+        const nodeId = await this.nodeRequester.requestRoot();
         this.renderer.setRootId(nodeId);
-        await requestNodeSummary(nodeId);
+        await this.nodeRequester.requestNodeSummary(nodeId);
         this.renderer.refresh();
     }
 
@@ -133,6 +144,8 @@ class App {
                 ev.preventDefault();
             } else if (this.layoutController.searchResultsOpen) {
                 this.layoutController.closeSearchResults();
+                this.searchController.clearSearchResults();
+                this.renderer.clearHighlight();
                 ev.preventDefault();
             }
         }

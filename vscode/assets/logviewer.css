@@ -171,6 +171,26 @@ summary:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
+p.nodeSummary.highlighted {
+    background-color: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+}
+
+ul.search-results {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    cursor: pointer;
+}
+
+li.search-result {
+    color: var(--vscode-list-foreground);
+    background-color: var(--vscode-list-background);
+}
+
+li.search-result:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
 
 p.node-kind-Build span.nodeKind {
     display: none;

@@ -12,7 +12,15 @@ export interface Node {
     children?: NodeId[];
 }
 
-export interface SearchResult {
-    nodeId: NodeId;
+export interface FullyExploredNode extends Node {
+    fullyExplored: true;
+}
+
+export function isFullyExploredNode(node: Node): node is FullyExploredNode {
+    return node.fullyExplored === true;
+}
+
+export interface SearchResult<T = NodeId> {
+    nodeId: T;
     ancestors: NodeId[];
 }

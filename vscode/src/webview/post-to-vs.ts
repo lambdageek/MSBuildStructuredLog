@@ -5,7 +5,7 @@ import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply
 
 import { SyncRequestDispatch } from '../shared/sync-request';
 
-import { addNodeToMap } from './node-mapper';
+import { NodeMapper } from './node-mapper';
 
 const vscode = acquireVsCodeApi<void>();
 
@@ -19,6 +19,26 @@ export function satisfyRequest(requestId: number, reply: CodeToWebviewReply) {
     requestDispatch.satisfy(requestId, reply);
 }
 
+export class NodeRequester {
+    constructor(readonly nodeMapper: NodeMapper) { }
+
+    async requestNodeSummary(nodeId: NodeId): Promise<void> {
+        const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
+        postToVs({ type: 'summarizeNode', nodeId, requestId });
+        const nodes = await promise;
+        for (const node of nodes.nodes) {
+            this.nodeMapper.add(node);
+        }
+    }
+
+    async requestRoot(): Promise<NodeId> {
+        const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
+        postToVs({ type: 'root', requestId });
+        const node = await promise;
+        this.nodeMapper.add(node.node);
+        return node.node.nodeId;
+    }
+}
 
 // async function requestNode(nodeId: NodeId): Promise<void> {
 //     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
@@ -36,22 +56,7 @@ export function satisfyRequest(requestId: number, reply: CodeToWebviewReply) {
 //     }
 // }
 
-export async function requestNodeSummary(nodeId: NodeId): Promise<void> {
-    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
-    postToVs({ type: 'summarizeNode', nodeId, requestId });
-    const nodes = await promise;
-    for (const node of nodes.nodes) {
-        addNodeToMap(node);
-    }
-}
 
-export async function requestRoot(): Promise<NodeId> {
-    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
-    postToVs({ type: 'root', requestId });
-    const node = await promise;
-    addNodeToMap(node.node);
-    return node.node.nodeId;
-}
 
 export async function requestFullText(nodeId: NodeId): Promise<string> {
     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewFullTextReply>();
