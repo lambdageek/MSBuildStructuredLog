@@ -27,13 +27,7 @@
 				]
 			}
 		],
-		"commands": [
-			{
-				"command": "msbuild-structured-log.start-viewer",
-				"category": "msbuild",
-				"title": "Start Structured Log Viewer"
-			}
-		]
+		"commands": []
 	},
 	"scripts": {
 		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Vscode.Engine ../obj/StructuredLogViewer.Vscode.Engine",
