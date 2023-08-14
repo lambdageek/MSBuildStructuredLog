@@ -42,6 +42,12 @@ export class SearchResultController implements DisposableLike {
     get results(): SearchResult[] {
         return this._results;
     }
+
+    async run(): Promise<void> {
+        const results = await this.controller.document.requestSearch(this.query);
+        this._results.length = 0;
+        this._results.push(...results.results);
+    }
 }
 
 export class MSBuildLogViewerController implements DisposableLike {
