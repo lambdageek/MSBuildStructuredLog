@@ -19,7 +19,7 @@
 		"customEditors": [
 			{
 				"viewType": "msbuild-structured-log.base",
-				"displayName": "MSBuild Structure Log Viewer",
+				"displayName": "MSBuild Structured Log Viewer",
 				"selector": [
 					{
 						"filenamePattern": "*.binlog"
@@ -27,7 +27,33 @@
 				]
 			}
 		],
-		"commands": []
+    "views": {
+      "msbuild-structured-log-search-results": [
+        {
+          "id": "msbuild-structured-log-search-results",
+          "name": "MSBuild Log Search Results",
+          "icon": "$(references)",
+          "when": "activeCustomEditorId == 'msbuild-structured-log.base' && msbuild-structured-log-search-results-visible == true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "msbuild-structured-log-search-results",
+          "title": "MSBuild Log Search Results",
+          "icon": "assets/StructuredLogger.png"
+        }
+      ]
+    },
+		"commands": [
+      {
+        "category": "MSBuild Structured Log Viewer",
+        "command": "msbuild-structured-log-viewer.start-search",
+        "title": "Search MSBuild Log",
+        "when": "activeCustomEditorId == 'msbuild-structured-log.base'"
+      }
+    ]
 	},
 	"scripts": {
 		"clean": "npx shx rm -rf dist out ../bin/StructuredLogViewer.Vscode.Engine ../obj/StructuredLogViewer.Vscode.Engine",

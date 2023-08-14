@@ -42,11 +42,12 @@ export class MSBuildLogViewer implements DisposableLike {
         this.disposables.length = 0;
     }
 
-    async prepare(fsPath: string, onContentLoaded: (e: WebviewToCodeContentLoaded, documentReady: () => void) => void): Promise<void> {
+    async prepare(uri: Uri, onContentLoaded: (e: WebviewToCodeContentLoaded, documentReady: () => void) => void): Promise<void> {
         this.webviewPanel.webview.options = {
             enableScripts: true,
-            /*enableCommandUris: true*/
+            enableCommandUris: ['msbuild-structured-log-viewer.start-search']
         };
+        const fsPath = uri.fsPath;
         const subscription = this.webviewPanel.webview.onDidReceiveMessage((e: WebviewToCodeContentLoaded) => {
             onContentLoaded(e, () => {
                 subscription.dispose();
@@ -54,9 +55,10 @@ export class MSBuildLogViewer implements DisposableLike {
                 this.postToWebview({ type: 'init', fsPath });
             });
         });
-        this.webviewPanel.webview.html = await this.getHtmlForWebview(this.webviewPanel.webview, fsPath);
+        this.webviewPanel.webview.html = await this.getHtmlForWebview(this.webviewPanel.webview, uri, fsPath);
     }
-    async getHtmlForWebview(webview: Webview, documentFilePath: string): Promise<string> {
+    async getHtmlForWebview(webview: Webview, uri: Uri, documentFilePath: string): Promise<string> {
+        const documentVSCodeUriEncoded = encodeURIComponent(JSON.stringify(uri));
         const resetCssContent = await this.assetContent('reset.css');
         const vscodeCssContent = await this.assetContent('vscode.css');
         const logviewerCssContent = await this.assetContent('logviewer.css');
@@ -93,6 +95,7 @@ export class MSBuildLogViewer implements DisposableLike {
             <div id="content">
                 <div id="grid-column-parent">
                     <div id="search">
+                        <div><a href="command:msbuild-structured-log-viewer.start-search?${documentVSCodeUriEncoded}" title="Search" id="search-link" disabled>Search...</a></div>
                         <input type="text" id="search-input" placeholder="Search" disabled />
                         <button id="search-button" disabled>Search</button>
                     </div>
