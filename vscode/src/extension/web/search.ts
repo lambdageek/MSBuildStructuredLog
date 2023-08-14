@@ -104,7 +104,13 @@ class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchRes
     }
 
     getTreeItem(element: SearchResult): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return new vscode.TreeItem(element.nodeId.toString(), vscode.TreeItemCollapsibleState.None);
+        const item = new vscode.TreeItem(element.nodeId.toString(), vscode.TreeItemCollapsibleState.None);
+        item.command = {
+            title: "Reveal node",
+            command: "msbuild-structured-log-viewer.reveal-node",
+            arguments: [this.controller, element],
+        };
+        return item;
     }
 }
 
@@ -127,6 +133,10 @@ async function runSearch(controller: MSBuildLogViewerController, query: string) 
 
 async function revealSearchResults(controller: SearchResultController, treeDataProvider: SearchResultsTreeDataProvider) {
     treeDataProvider.controller = controller;
+}
+
+async function revealNode(controller: SearchResultController, result: SearchResult) {
+    await controller.controller.revealNode(result);
 }
 
 async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<void> {
@@ -160,4 +170,5 @@ export async function activateSearch(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.start-search', startNewSearch));
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', runSearch));
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', revealSearchResults));
+    context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', revealNode));
 }

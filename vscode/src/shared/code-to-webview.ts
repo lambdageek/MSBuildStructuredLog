@@ -23,9 +23,15 @@ export interface CodeToWebviewEventInit extends CodeToWebviewEventBase {
     fsPath: string;
 }
 
+export interface CodeToWebviewEventRevealNode extends CodeToWebviewEventBase {
+    type: 'revealNode';
+    node: SearchResult;
+}
+
 export type CodeToWebviewEvent =
     CodeToWebviewEventEngineStateChange
     | CodeToWebviewEventInit
+    | CodeToWebviewEventRevealNode
     ;
 
 export interface CodeToWebviewReplyBase extends CodeToWebviewMessage {

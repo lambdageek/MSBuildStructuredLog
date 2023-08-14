@@ -124,6 +124,15 @@ class App {
                         satisfyRequest(reply.requestId, reply);
                         break;
                     }
+                case 'revealNode':
+                    {
+                        const searchResult = ev.data.node;
+                        queueMicrotask(async () => {
+                            const fullyExploredNode = await this.searchController.summarizeResult(searchResult);
+                            this.renderer.selectSearchResult(fullyExploredNode);
+                        });
+                        break;
+                    }
                 default:
                     assertNever(ev.data);
                     this.setStatus(`Got a ${(ev.data as any).type} unexpectedly`, { logLevel: 'error' });

@@ -44,12 +44,13 @@ export class SearchController {
         }
     }
 
-    // ensure that each node in the results is fully explored
+    // ensure that the node in the results is fully explored
+    summarizeResult(result: SearchResult): Promise<SearchResult<FullyExploredNode>> {
+        return this.nodeMapper.fullyExpore(result.nodeId).then((n) => ({ ...result, nodeId: n }));
+    }
+
     summarizeResults(results: SearchResult[]): Promise<SearchResult<FullyExploredNode>[]> {
-        return Promise.all(results.map(async (result) => {
-            const n = await this.nodeMapper.fullyExpore(result.nodeId);
-            return { ...result, nodeId: n };
-        }));
+        return Promise.all(results.map((result) => this.summarizeResult(result)));
     }
 
     renderResults(results: SearchResult<FullyExploredNode>[]) {

@@ -97,6 +97,10 @@ export class MSBuildLogViewerController implements DisposableLike {
         }
     }
 
+    revealNode(node: SearchResult): void {
+        this.viewer.postToWebview({ type: 'revealNode', node });
+    }
+
     onWebviewReply(e: WebviewToCodeReply): void {
         switch (e.type) {
             case 'ready':
