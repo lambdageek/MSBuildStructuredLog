@@ -16,13 +16,13 @@ class ActiveViews {
 
     constructor() { }
 
+    get activeController(): MSBuildLogViewerController | undefined {
+        return this._activeController;
+    }
+
     get activeWebviewPanel(): vscode.WebviewPanel | undefined {
         return this._activeController?.viewer.webviewPanel;
     }
-
-    get activeDocument(): MSBuildLogDocument | undefined {
-        return this._activeController?.document;
-    };
 
     get onFirstViewerOpened(): vscode.Event<MSBuildLogViewerController> {
         return this._onFirstViewerOpened.event;
@@ -41,6 +41,10 @@ class ActiveViews {
 
     get allControllers(): MSBuildLogViewerController[] {
         return [...this._allControllers];
+    }
+
+    getController(uri: vscode.Uri): MSBuildLogViewerController | undefined {
+        return this._allControllers.find(c => c.document.uri.toString() === uri.toString());
     }
 
     add(controller: MSBuildLogViewerController) {
@@ -84,10 +88,6 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<MSBuildLogDo
         if (typeof process === 'object') {
             out.info(`node version ${process.version}`);
         }
-
-        context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', async (uri: Uri, query: string) => {
-            vscode.window.showInformationMessage(`Searching for ${query} in ${uri.toString()}`);
-        }));
 
         return vscode.window.registerCustomEditorProvider(EditorProvider.viewType,
             new EditorProvider(context, out),

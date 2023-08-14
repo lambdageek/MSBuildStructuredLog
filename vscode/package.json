@@ -31,7 +31,7 @@
       "msbuild-structured-log-viewer-search-container": [
         {
           "id": "msbuild-structured-log-viewer.overview",
-          "name": "Search Logs",
+          "name": "Searches",
           "icon": "assets/StructuredLogger.png",
           "when": "msbuild-structured-log-viewer-isOpen == true"
         },

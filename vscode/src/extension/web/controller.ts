@@ -1,6 +1,7 @@
 import {
     Disposable,
     ExtensionContext,
+    EventEmitter,
     LogOutputChannel,
 } from "vscode";
 import { MSBuildLogDocument } from "./MSBuildLogDocument";
@@ -13,20 +14,70 @@ import { WebviewToCodeRequest, WebviewToCodeReply, WebviewToCodeContentLoaded } 
 
 import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewSearchResultsReply } from "../../shared/code-to-webview";
 
+import { SearchResult } from "../../shared/model";
+
 import { WasmState } from "./wasm/engine";
 
 import { MSBuildLogViewer } from "./viewer";
 
-export class MSBuildLogViewerController implements DisposableLike {
-    readonly disposables: DisposableLike[];
+export class SearchResultController implements DisposableLike {
+    readonly disposables: DisposableLike[] = [];
+    readonly _results: SearchResult[] = [];
 
-    constructor(readonly context: ExtensionContext, readonly document: MSBuildLogDocument, readonly viewer: MSBuildLogViewer, readonly out?: LogOutputChannel) {
-        this.disposables = [];
+    private readonly _onDidDispose = new EventEmitter<void>();
+
+    constructor(readonly controller: MSBuildLogViewerController, readonly query: string) {
     }
 
     dispose() {
         this.disposables.forEach((d) => d.dispose());
         this.disposables.length = 0;
+        this._results.length = 0;
+    }
+
+    get onDidDispose() {
+        return this._onDidDispose.event;
+    }
+
+    get results(): SearchResult[] {
+        return this._results;
+    }
+}
+
+export class MSBuildLogViewerController implements DisposableLike {
+    readonly disposables: DisposableLike[];
+    readonly _searches: SearchResultController[];
+    readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
+
+    constructor(readonly context: ExtensionContext, readonly document: MSBuildLogDocument, readonly viewer: MSBuildLogViewer, readonly out?: LogOutputChannel) {
+        this.disposables = [];
+        this._searches = [];
+    }
+
+    dispose() {
+        this.disposables.forEach((d) => d.dispose());
+        this.disposables.length = 0;
+    }
+
+    newSearch(query: string): SearchResultController {
+        const search = new SearchResultController(this, query);
+        this.disposables.push(search.onDidDispose(() => {
+            const index = this._searches.indexOf(search);
+            if (index >= 0) {
+                this._searches.splice(index, 1);
+            }
+        }));
+        this._searches.push(search);
+        this._onSearchAdded.fire(search);
+        return search;
+    }
+
+    get searches(): SearchResultController[] {
+        return [... this._searches];
+    }
+
+    get onSearchAdded() {
+        return this._onSearchAdded.event;
     }
 
     onContentLoaded(e: WebviewToCodeContentLoaded, documentReady: () => void): void {
