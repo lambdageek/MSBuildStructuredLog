@@ -31,7 +31,7 @@
       "msbuild-structured-log-viewer-search-container": [
         {
           "id": "msbuild-structured-log-viewer.overview",
-          "name": "Overview",
+          "name": "Search Logs",
           "icon": "assets/StructuredLogger.png",
           "when": "msbuild-structured-log-viewer-isOpen == true"
         },
@@ -47,7 +47,7 @@
       "activitybar": [
         {
           "id": "msbuild-structured-log-viewer-search-container",
-          "title": "MSBuild Log Search Results",
+          "title": "MSBuild Log Viewer",
           "icon": "assets/StructuredLogger.png"
         }
       ]
@@ -56,7 +56,7 @@
       "view/item/context": [
         {
         "command": "msbuild-structured-log-viewer.start-search",
-        "when": "view = msbuild-structured-log-viewer.overview && viewItem == document",
+        "when": "view == msbuild-structured-log-viewer.overview && viewItem == document",
         "group": "inline"
         }
       ]
