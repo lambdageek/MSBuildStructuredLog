@@ -28,21 +28,36 @@
 			}
 		],
     "views": {
-      "msbuild-structured-log-search-results": [
+      "msbuild-structured-log-viewer-search-container": [
         {
-          "id": "msbuild-structured-log-search-results",
-          "name": "MSBuild Log Search Results",
-          "icon": "$(references)",
-          "when": "activeCustomEditorId == 'msbuild-structured-log.base' && msbuild-structured-log-search-results-visible == true"
+          "id": "msbuild-structured-log-viewer.overview",
+          "name": "Overview",
+          "icon": "assets/StructuredLogger.png",
+          "when": "msbuild-structured-log-viewer-isOpen == true"
+        },
+        {
+          "id": "msbuild-structured-log-viewer.search-results",
+          "name": "Search Results",
+          "icon": "$(search-view-icon)",
+          "when": "msbuild-structured-log-viewer-isOpen == true"
         }
       ]
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "msbuild-structured-log-search-results",
+          "id": "msbuild-structured-log-viewer-search-container",
           "title": "MSBuild Log Search Results",
           "icon": "assets/StructuredLogger.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+        "command": "msbuild-structured-log-viewer.start-search",
+        "when": "view = msbuild-structured-log-viewer.overview && viewItem == document",
+        "group": "inline"
         }
       ]
     },
@@ -51,6 +66,7 @@
         "category": "MSBuild Structured Log Viewer",
         "command": "msbuild-structured-log-viewer.start-search",
         "title": "Search MSBuild Log",
+        "icon": "$(search-view-icon)",
         "when": "activeCustomEditorId == 'msbuild-structured-log.base'"
       }
     ]

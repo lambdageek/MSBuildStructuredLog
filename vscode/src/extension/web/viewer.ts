@@ -95,7 +95,7 @@ export class MSBuildLogViewer implements DisposableLike {
             <div id="content">
                 <div id="grid-column-parent">
                     <div id="search">
-                        <div><a href="command:msbuild-structured-log-viewer.start-search?${documentVSCodeUriEncoded}" title="Search" id="search-link" disabled>Search...</a></div>
+                        <div><a href="command:msbuild-structured-log-viewer.start-search?${documentVSCodeUriEncoded}" title="Search" id="search-link" disabled>New Search...</a></div>
                         <input type="text" id="search-input" placeholder="Search" disabled />
                         <button id="search-button" disabled>Search</button>
                     </div>
