@@ -6,6 +6,7 @@ import { ControllerGroup, activeLogViewers } from '../editor';
 import { DocumentController, SearchResultController } from '../controller';
 import { DisposableLike } from '../../../shared/disposable';
 
+import { SearchResultsTreeDataProvider } from './search-results';
 
 class SearchSideViewController implements DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
@@ -19,6 +20,7 @@ class SearchSideViewController implements DisposableLike {
         this.subscriptions.push(searchResultsTreeView);
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', this.runSearch.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', this.revealSearchResults.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', this.revealSearchResultInEditor.bind(this)));
 
         this.subscriptions.push(activeLogViewers.onViewerDisposed(this.unsetSearchResultsControllerWhenEditorClosed.bind(this)));
     }
@@ -34,6 +36,10 @@ class SearchSideViewController implements DisposableLike {
 
     async revealSearchResults(controller: SearchResultController, treeDataProvider: SearchResultsTreeDataProvider) {
         treeDataProvider.controller = controller;
+    }
+
+    async revealSearchResultInEditor(controller: SearchResultController, result: SearchResult) {
+        await controller.reveal(result);
     }
 
     async runSearch(controller: DocumentController, query: string): Promise<void> {
@@ -140,55 +146,6 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
     }
 }
 
-class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchResult>, DisposableLike {
-    private readonly subscriptions: DisposableLike[] = [];
-    private _onDidChangeTreeData: vscode.EventEmitter<SearchResult | undefined> = new vscode.EventEmitter<SearchResult | undefined>();
-    private _controller: SearchResultController | null = null;
-    constructor() {
-    }
-
-    dispose() {
-        this.subscriptions.forEach(d => d.dispose());
-        this.subscriptions.length = 0;
-    }
-
-    get controller(): SearchResultController | null {
-        return this._controller;
-    }
-
-    set controller(value: SearchResultController | null) {
-        this._controller = value;
-        this._onDidChangeTreeData.fire(undefined);
-    }
-
-    get onDidChangeTreeData(): vscode.Event<SearchResult | undefined> {
-        return this._onDidChangeTreeData.event;
-    }
-
-    getChildren(element?: SearchResult): vscode.ProviderResult<SearchResult[]> {
-        if (!this.controller)
-            return [];
-        if (!element) {
-            return this.controller.results;
-        }
-        return []
-    }
-
-    getParent(_element: SearchResult<number>): vscode.ProviderResult<SearchResult<number>> {
-        return null;
-    }
-
-    getTreeItem(element: SearchResult): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        const item = new vscode.TreeItem(element.nodeId.toString(), vscode.TreeItemCollapsibleState.None);
-        item.command = {
-            title: "Reveal node",
-            command: "msbuild-structured-log-viewer.reveal-node",
-            arguments: [this.controller, element],
-        };
-        return item;
-    }
-}
-
 async function registerSideView(): Promise<SearchSideViewController> {
     const searchResultsTreeDataProvider = new SearchResultsTreeDataProvider();
     const overviewTreeDataProvider = new OverviewTreeDataProvider(searchResultsTreeDataProvider);
@@ -196,10 +153,6 @@ async function registerSideView(): Promise<SearchSideViewController> {
     const searchResultsTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.search-results", { treeDataProvider: searchResultsTreeDataProvider });
     const controller = new SearchSideViewController(overviewTreeDataProvider, searchResultsTreeDataProvider, overviewTreeView, searchResultsTreeView);
     return controller;
-}
-
-async function revealSearchResult(controller: SearchResultController, result: SearchResult) {
-    await controller.reveal(result);
 }
 
 async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<void> {
@@ -231,5 +184,4 @@ async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<
 export async function activateSearch(context: vscode.ExtensionContext) {
     context.subscriptions.push(await registerSideView());
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.start-search', startNewSearch));
-    context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', revealSearchResult));
 }

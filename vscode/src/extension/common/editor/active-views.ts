@@ -51,17 +51,22 @@ class ActiveViewsImpl {
         const first = this._allControllers.length === 0;
         const webviewPanel = controller.editorController.viewer.webviewPanel;
         this._activeController = controller;
+        if (webviewPanel.active)
+            vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', true);
         this._allControllers.push(controller);
         webviewPanel.onDidChangeViewState((e) => {
             if (e.webviewPanel.active) {
+                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', true);
                 this._activeController = controller;
             } else if (this.activeWebviewPanel === e.webviewPanel) {
                 this._activeController = undefined;
+                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', false);
             }
         });
         webviewPanel.onDidDispose(() => {
             if (this.activeWebviewPanel === webviewPanel) {
                 this._activeController = undefined;
+                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', false);
             }
             this._allControllers.splice(this._allControllers.indexOf(controller), 1);
             this._onViewerDisposed.fire(controller);

@@ -20,7 +20,7 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
             new EditorProvider(context, documentFactory, out),
             {
                 webviewOptions: {
-                    enableFindWidget: true,
+                    // enableFindWidget: true,
                     retainContextWhenHidden: true /* FIXME: don't do this */
                 }
             }
