@@ -6,10 +6,10 @@ import { DisposableLike } from '../../shared/disposable';
 import { SyncRequestDispatch } from '../../shared/sync-request';
 
 import {
-    WasmToCodeReply, WasmToCodeEvent, WasmToCodeNodeReply, WasmToCodeManyNodesReply, WasmToCodeFullTextReply, WasmToCodeSearchResultsReply,
-    isWasmToCodeMessage,
-} from './wasm-to-code';
-import { CodeToWasmCommand } from './code-to-wasm';
+    DotnetToCodeReply, DotnetToCodeEvent, DotnetToCodeNodeReply, DotnetToCodeManyNodesReply, DotnetToCodeFullTextReply, DotnetToCodeSearchResultsReply,
+    isDotnetToCodeMessage,
+} from './dotnet-to-code';
+import { CodeToDotnetCommand } from './code-to-dotnet';
 
 import { SubprocessState, SubprocessStateChangeEvent } from './subprocess/subprocess-state';
 import { assertNever } from '../../shared/assert-never';
@@ -17,9 +17,9 @@ import { assertNever } from '../../shared/assert-never';
 
 export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocument {
     disposables: DisposableLike[] = [];
-    readonly _requestDispatch: SyncRequestDispatch<WasmToCodeReply>;
+    readonly _requestDispatch: SyncRequestDispatch<DotnetToCodeReply>;
     constructor(readonly uri: Uri, readonly out: vscode.LogOutputChannel) {
-        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<WasmToCodeReply>());
+        this.disposables.push(this._requestDispatch = new SyncRequestDispatch<DotnetToCodeReply>());
     }
 
     abstract get state(): SubprocessState;
@@ -31,7 +31,7 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         this.disposables.length = 0;
     }
 
-    protected formatCommand(c: CodeToWasmCommand): string {
+    protected formatCommand(c: CodeToDotnetCommand): string {
         let requestId = c.requestId;
         let command = c.command;
         let extra: string = '';
@@ -60,10 +60,10 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return `${requestId}\n${command}\n${extra}`;
     }
 
-    abstract postCommand(c: CodeToWasmCommand): Promise<void>;
+    abstract postCommand(c: CodeToDotnetCommand): Promise<void>;
 
-    async requestRoot(): Promise<WasmToCodeNodeReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeNodeReply>();
+    async requestRoot(): Promise<DotnetToCodeNodeReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeNodeReply>();
         this.out.info(`requested root id=${requestId}`);
         await this.postCommand({ requestId, command: 'root' });
         const n = await replyPromise;
@@ -73,8 +73,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
-    async requestNode(nodeId: NodeId): Promise<WasmToCodeNodeReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeNodeReply>();
+    async requestNode(nodeId: NodeId): Promise<DotnetToCodeNodeReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeNodeReply>();
         this.out.info(`requested node id=${requestId} nodeId=${nodeId}`);
         await this.postCommand({ requestId, command: 'node', nodeId });
         const n = await replyPromise;
@@ -84,8 +84,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
-    async requestManyNodes(nodeId: NodeId, count: number): Promise<WasmToCodeManyNodesReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeManyNodesReply>();
+    async requestManyNodes(nodeId: NodeId, count: number): Promise<DotnetToCodeManyNodesReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeManyNodesReply>();
         this.out.info(`requested id=${requestId}  ${count} nodes starting from nodeId=${nodeId}`);
         await this.postCommand({ requestId, command: 'manyNodes', nodeId, count });
         const n = await replyPromise;
@@ -95,8 +95,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
-    async requestNodeSummary(nodeId: NodeId): Promise<WasmToCodeManyNodesReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeManyNodesReply>();
+    async requestNodeSummary(nodeId: NodeId): Promise<DotnetToCodeManyNodesReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeManyNodesReply>();
         this.out.info(`requested id=${requestId} node summary`);
         await this.postCommand({ requestId, command: 'summarizeNode', nodeId });
         const n = await replyPromise;
@@ -106,8 +106,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
-    async requestNodeFullText(nodeId: NodeId): Promise<WasmToCodeFullTextReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeFullTextReply>();
+    async requestNodeFullText(nodeId: NodeId): Promise<DotnetToCodeFullTextReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeFullTextReply>();
         this.out.info(`requested id=${requestId} full text`);
         await this.postCommand({ requestId, command: 'nodeFullText', nodeId });
         const n = await replyPromise;
@@ -117,8 +117,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
-    async requestSearch(query: string): Promise<WasmToCodeSearchResultsReply> {
-        const [requestId, replyPromise] = this._requestDispatch.promiseReply<WasmToCodeSearchResultsReply>();
+    async requestSearch(query: string): Promise<DotnetToCodeSearchResultsReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeSearchResultsReply>();
         this.out.info(`requested id=${requestId} search for ${query}`);
         await this.postCommand({ requestId, command: 'search', query });
         const n = await replyPromise;
@@ -132,8 +132,8 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
 
     gotStdOut(v: unknown) {
         this.out.info(`received from wasm process: ${v}`);
-        if (isWasmToCodeMessage(v)) {
-            const value = v as WasmToCodeReply | WasmToCodeEvent;
+        if (isDotnetToCodeMessage(v)) {
+            const value = v as DotnetToCodeReply | DotnetToCodeEvent;
             switch (value.type) {
                 case 'ready':
                     this.out.info(`wasm process signalled Ready`);
@@ -145,17 +145,17 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
                     break;
                 case 'node':
                 case 'manyNodes':
-                    const nodeReply = value as WasmToCodeReply;
+                    const nodeReply = value as DotnetToCodeReply;
                     const requestId = nodeReply.requestId;
                     this._requestDispatch.satisfy(requestId, nodeReply);
                     break;
                 case 'fullText':
-                    const fullTextReply = value as WasmToCodeFullTextReply;
+                    const fullTextReply = value as DotnetToCodeFullTextReply;
                     const fullTextRequestId = fullTextReply.requestId;
                     this._requestDispatch.satisfy(fullTextRequestId, fullTextReply);
                     break;
                 case 'searchResults':
-                    const searchResultsReply = value as WasmToCodeSearchResultsReply;
+                    const searchResultsReply = value as DotnetToCodeSearchResultsReply;
                     const searchResultsRequestId = searchResultsReply.requestId;
                     this._requestDispatch.satisfy(searchResultsRequestId, searchResultsReply);
                     break;

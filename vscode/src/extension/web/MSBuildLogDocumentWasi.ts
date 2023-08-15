@@ -2,7 +2,7 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import { CodeToWasmCommand } from './code-to-wasm';
+import { CodeToDotnetCommand } from './code-to-dotnet';
 
 import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
 import { SubprocessState, SubprocessStateChangeEvent } from './subprocess/subprocess-state';
@@ -29,7 +29,7 @@ export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
 
     get onStateChange(): vscode.Event<SubprocessStateChangeEvent> { return this._engine.onStateChange; }
 
-    async postCommand(c: CodeToWasmCommand): Promise<void> {
+    async postCommand(c: CodeToDotnetCommand): Promise<void> {
         const payload = this.formatCommand(c);
         await this._engine.process.stdin?.write(payload, 'utf-8');
     }
