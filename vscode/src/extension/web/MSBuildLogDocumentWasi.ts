@@ -2,14 +2,14 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import { CodeToDotnetCommand } from './code-to-dotnet';
+import { CodeToDotnetCommand } from '../common/code-to-dotnet';
 
-import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
-import { SubprocessState, SubprocessStateChangeEvent } from './subprocess/subprocess-state';
-import { loadWasm, WasmEngine } from './wasm/engine';
+import { polyfillStreams, jsonFromChunks, stringFromChunks } from '../common/streaming';
+import { SubprocessState, SubprocessStateChangeEvent } from '../common/subprocess/subprocess-state';
+import { loadWasm, WasmEngine } from './wasi-engine';
 import * as wasiWasm from '@vscode/wasm-wasi';
 
-import { AbstractMSBuildLogDocument } from './document';
+import { AbstractMSBuildLogDocument } from '../common/document';
 
 export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
     constructor(uri: Uri, readonly _engine: WasmEngine, out: vscode.LogOutputChannel) {

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
-import { SubprocessState, SubprocessStateChangeEvent } from '../subprocess/subprocess-state';
+import { SubprocessState, SubprocessStateChangeEvent } from '../common/subprocess/subprocess-state';
 import { Wasm, WasmProcess } from '@vscode/wasm-wasi';
-import { DisposableLike } from '../../../shared/disposable';
+import { DisposableLike } from '../../shared/disposable';
 
 
 export let wasm: Wasm | null = null;

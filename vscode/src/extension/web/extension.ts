@@ -1,8 +1,8 @@
 
 import type { ExtensionContext } from 'vscode';
 
-import { activateEditorProvider } from "./editor-provider";
-import { activateSearch } from './search';
+import { activateEditorProvider } from "../common/editor-provider";
+import { activateSearch } from '../common/search';
 import { openMSBuildLogDocumentWasi } from './MSBuildLogDocumentWasi';
 
 

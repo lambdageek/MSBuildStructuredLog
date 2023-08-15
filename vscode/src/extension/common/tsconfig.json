@@ -1,0 +1,13 @@
+{
+  "extends": "../../../tsconfig.settings.json",
+  "compilerOptions": {
+    "lib": [
+      "es2020",
+      "webworker"
+    ],
+    "types": [
+        "node",
+        "vscode"
+    ],
+  }
+}
