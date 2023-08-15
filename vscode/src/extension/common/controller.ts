@@ -23,6 +23,7 @@ import { MSBuildLogViewer } from "./viewer";
 export class SearchResultController implements DisposableLike {
     readonly disposables: DisposableLike[] = [];
     readonly _results: SearchResult[] = [];
+    private _didRun = false;
 
     private readonly _onDidDispose = new EventEmitter<void>();
 
@@ -43,8 +44,17 @@ export class SearchResultController implements DisposableLike {
         return this._results;
     }
 
+    get hasResults(): boolean {
+        return this._didRun;
+    }
+
+    get resultsLength(): number {
+        return this._results.length;
+    }
+
     async run(): Promise<void> {
         const results = await this.controller.document.requestSearch(this.query);
+        this._didRun = true;
         this._results.length = 0;
         this._results.push(...results.results);
     }
