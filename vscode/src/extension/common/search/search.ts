@@ -2,7 +2,7 @@
 import * as vscode from 'vscode';
 
 import { SearchResult } from '../../../shared/model';
-import { activeLogViewers } from '../editor/editor-provider';
+import { activeLogViewers } from '../editor';
 import { MSBuildLogViewerController, SearchResultController } from '../controller';
 import { DisposableLike } from '../../../shared/disposable';
 
