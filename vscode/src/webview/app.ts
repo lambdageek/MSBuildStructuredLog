@@ -32,22 +32,15 @@ class App {
         const rootDiv = findFatal('logview-root-node');
         const gridColumnParent = findFatal('grid-column-parent');
         const sideview = findFatal('side-view');
-        const searchResults = findFatal('search-results');
-        const searchInput = findFatal<HTMLInputElement>('search-input');
-        const searchButton = findFatal<HTMLButtonElement>('search-button');
 
         const nodeMapper = new NodeMapper();
         const nodeRequester = new NodeRequester(nodeMapper);
         nodeMapper.requestNodeSummary = nodeRequester.requestNodeSummary.bind(nodeRequester);
 
-        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv, searchResults);
-        const searchController = new SearchController(nodeMapper, searchInput, searchButton, searchResults, layoutController);
+        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv);
+        const searchController = new SearchController(nodeMapper);
         const sideViewController = new SideViewController(sideview, layoutController);
         const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, sideViewController);
-
-        searchController.onSearchResultSelected = (result) => {
-            renderer.selectSearchResult(result);
-        }
 
         return new App(nodeRequester, statusLineDiv, layoutController, searchController, renderer);
     }
@@ -83,7 +76,6 @@ class App {
                             this.setStatus(`Rendering ${this.binlogFsPath}`);
                             queueMicrotask(async () => {
                                 await this.requestRootAndRefresh();
-                                this.searchController.onReady();
                                 this.setStatus(`Loaded ${this.binlogFsPath}`);
                             });
                             break;
@@ -118,12 +110,6 @@ class App {
                         satisfyRequest(reply.requestId, reply);
                         break;
                     }
-                case 'searchResults':
-                    {
-                        const reply = ev.data;
-                        satisfyRequest(reply.requestId, reply);
-                        break;
-                    }
                 case 'revealNode':
                     {
                         const searchResult = ev.data.node;
@@ -147,14 +133,8 @@ class App {
 
     onKeyDown(ev: KeyboardEvent): void {
         if (ev.key === 'Escape') {
-            // prefer closing the side view if it's open, otherwise close the search results
             if (this.layoutController.sideViewOpen) {
                 this.layoutController.closeSideview();
-                ev.preventDefault();
-            } else if (this.layoutController.searchResultsOpen) {
-                this.layoutController.closeSearchResults();
-                this.searchController.clearSearchResults();
-                this.renderer.clearHighlight();
                 ev.preventDefault();
             }
         }

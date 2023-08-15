@@ -37,18 +37,12 @@ export interface WebviewToCodeNodeFullTextRequest extends WebviewToCodeRequestBa
     nodeId: NodeId;
 }
 
-export interface WebviewToCodeSearchRequest extends WebviewToCodeRequestBase {
-    type: 'search';
-    query: string;
-}
-
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
     | WebviewToCodeManyNodesRequest
     | WebviewToCodeNodeSummaryRequest
     | WebviewToCodeNodeFullTextRequest
-    | WebviewToCodeSearchRequest
     ;
 
 export interface WebviewToCodeReplyReady {

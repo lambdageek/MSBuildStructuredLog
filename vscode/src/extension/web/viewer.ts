@@ -96,12 +96,9 @@ export class MSBuildLogViewer implements DisposableLike {
                 <div id="grid-column-parent">
                     <div id="search">
                         <div><a href="command:msbuild-structured-log-viewer.start-search?${documentVSCodeUriEncoded}" title="Search" id="search-link" disabled>New Search...</a></div>
-                        <input type="text" id="search-input" placeholder="Search" disabled />
-                        <button id="search-button" disabled>Search</button>
                     </div>
                     <div id="logview-root-node"></div>
                     <div id="side-view"></div>
-                    <div id="search-results"></div>
                     <div id="status-line">Starting binlog viewer for ${documentFilePath}...</div>
                 </div>
             </div>
@@ -136,7 +133,6 @@ export class MSBuildLogViewer implements DisposableLike {
                 case 'manyNodes':
                 case 'summarizeNode':
                 case 'nodeFullText':
-                case 'search':
                     this._onWebviewRequest.fire(e);
                     break;
                 default:

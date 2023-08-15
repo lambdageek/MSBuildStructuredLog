@@ -53,14 +53,8 @@ export interface CodeToWebviewFullTextReply extends CodeToWebviewReplyBase {
     fullText: string;
 }
 
-export interface CodeToWebviewSearchResultsReply extends CodeToWebviewReplyBase {
-    type: 'searchResults';
-    results: SearchResult[];
-}
-
 export type CodeToWebviewReply =
     CodeToWebviewNodeReply
     | CodeToWebviewManyNodesReply
     | CodeToWebviewFullTextReply
-    | CodeToWebviewSearchResultsReply
     ;
