@@ -60,18 +60,6 @@ export class WasmEngine implements DisposableLike {
 
     get state(): SubprocessState { return this._state; }
 
-    isLive(): boolean {
-        switch (this._state) {
-            case SubprocessState.SHUTTING_DOWN:
-            case SubprocessState.TERMINATING:
-            case SubprocessState.EXIT_SUCCESS:
-            case SubprocessState.EXIT_FAILURE:
-                return false;
-            default:
-                return true;
-        }
-    }
-
     dispose() {
         this._state = SubprocessState.TERMINATING;
         this.process.terminate();

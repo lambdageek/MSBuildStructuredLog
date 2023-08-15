@@ -11,7 +11,7 @@ import {
 } from './dotnet-to-code';
 import { CodeToDotnetCommand } from './code-to-dotnet';
 
-import { SubprocessState, SubprocessStateChangeEvent } from './subprocess/subprocess-state';
+import { SubprocessState, SubprocessStateChangeEvent, subprocessIsLive } from './subprocess/subprocess-state';
 import { assertNever } from '../../shared/assert-never';
 
 
@@ -23,7 +23,7 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
     }
 
     abstract get state(): SubprocessState;
-    abstract isLive(): boolean;
+    isLive(): boolean { return subprocessIsLive(this.state); }
     abstract get onStateChange(): vscode.Event<SubprocessStateChangeEvent>;
 
     dispose() {

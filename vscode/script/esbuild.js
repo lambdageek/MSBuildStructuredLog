@@ -18,7 +18,7 @@ const sharedWebOptions = {
 
 /** @type BuildOptions */
 const webOptions = {
-  entryPoints: ["src/extension/web/extension.ts"],
+  entryPoints: ["src/extension/extension.ts"],
   outfile: "dist/web/extension.js",
   format: "cjs",
   ...sharedWebOptions,
@@ -35,7 +35,7 @@ const sharedDesktopOptions = {
 
 /** @type BuildOptions */
 const desktopOptions = {
-  entryPoints: ["src/extension/web/extension.ts"],
+  entryPoints: ["src/extension/extension.ts"],
   outfile: "dist/desktop/extension.js",
   format: "cjs",
   ...sharedDesktopOptions,

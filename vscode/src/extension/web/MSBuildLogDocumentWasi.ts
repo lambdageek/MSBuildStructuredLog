@@ -21,7 +21,6 @@ export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
     }
 
     get state(): SubprocessState { return this._engine.state; }
-    isLive(): boolean { return this._engine.isLive(); }
 
     subprocessChangedApplicationState(state: SubprocessState.READY | SubprocessState.SHUTTING_DOWN) {
         this._engine.applicationChangedState(state);
@@ -37,7 +36,7 @@ export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
 }
 
 export async function openMSBuildLogDocumentWasi(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<AbstractMSBuildLogDocument> {
-    out.info(`opening msbuild log ${uri}`);
+    out.info(`opening msbuild log ${uri} using Wasi runtime`);
     const wasm = await loadWasm();
     await polyfillStreams();
     const rootFileSystem = await wasm.createRootFileSystem([
