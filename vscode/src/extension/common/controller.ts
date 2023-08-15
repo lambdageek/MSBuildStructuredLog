@@ -27,7 +27,7 @@ export class SearchResultController implements DisposableLike {
 
     private readonly _onDidDispose = new EventEmitter<void>();
 
-    constructor(readonly controller: MSBuildLogViewerController, readonly query: string) {
+    constructor(readonly controller: DocumentController, readonly query: string) {
     }
 
     dispose() {
@@ -58,26 +58,28 @@ export class SearchResultController implements DisposableLike {
         this._results.length = 0;
         this._results.push(...results.results);
     }
+
+    reveal(result: SearchResult): void {
+        this.controller.revealSearchResult(result);
+    }
 }
 
-export class MSBuildLogViewerController implements DisposableLike {
-    readonly disposables: DisposableLike[];
-    readonly _searches: SearchResultController[];
+// talks to the underlying Engine process
+export class DocumentController implements DisposableLike {
+    private readonly subscriptions: DisposableLike[] = [];
+    readonly _searches: SearchResultController[] = []
     readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
+    readonly _onSearchResultRevealed: EventEmitter<SearchResult> = new EventEmitter<SearchResult>();
+    constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly out?: LogOutputChannel) {
 
-    constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly viewer: MSBuildLogViewer, readonly out?: LogOutputChannel) {
-        this.disposables = [];
-        this._searches = [];
     }
-
     dispose() {
-        this.disposables.forEach((d) => d.dispose());
-        this.disposables.length = 0;
+        this.subscriptions.forEach((d) => d.dispose());
+        this.subscriptions.length = 0;
     }
-
     newSearch(query: string): SearchResultController {
         const search = new SearchResultController(this, query);
-        this.disposables.push(search.onDidDispose(() => {
+        this.subscriptions.push(search.onDidDispose(() => {
             const index = this._searches.indexOf(search);
             if (index >= 0) {
                 this._searches.splice(index, 1);
@@ -96,12 +98,34 @@ export class MSBuildLogViewerController implements DisposableLike {
         return this._onSearchAdded.event;
     }
 
+    get onSearchResultRevealed() {
+        return this._onSearchResultRevealed.event;
+    }
+
+    revealSearchResult(result: SearchResult): void {
+        this._onSearchResultRevealed.fire(result);
+    }
+
+}
+
+// talks to the webview
+export class EditorController implements DisposableLike {
+    private readonly subscriptions: DisposableLike[] = [];
+    constructor(readonly viewer: MSBuildLogViewer, readonly documentController: DocumentController, readonly out?: LogOutputChannel) {
+        this.subscriptions.push(documentController.onSearchResultRevealed(this.revealNode.bind(this)));
+    }
+
+    dispose() {
+        this.subscriptions.forEach((d) => d.dispose());
+        this.subscriptions.length = 0;
+    }
+
     onContentLoaded(e: WebviewToCodeContentLoaded, documentReady: () => void): void {
         {
             if (e.type === 'contentLoaded') {
                 this.out?.info('webview content loaded');
-                this.disposables.push(this.viewer.onWebviewReply((e) => this.onWebviewReply(e)));
-                this.disposables.push(this.viewer.onWebviewRequest((e) => this.onWebviewRequest(e)));
+                this.subscriptions.push(this.viewer.onWebviewReply((e) => this.onWebviewReply(e)));
+                this.subscriptions.push(this.viewer.onWebviewRequest((e) => this.onWebviewRequest(e)));
                 documentReady();
             }
         }
@@ -114,9 +138,9 @@ export class MSBuildLogViewerController implements DisposableLike {
     onWebviewReply(e: WebviewToCodeReply): void {
         switch (e.type) {
             case 'ready':
-                this.postStateChange(this.document.state);
-                if (this.document.isLive()) {
-                    const stateChangeDisposable = this.document.onStateChange((ev) => this.postStateChange(ev.state, stateChangeDisposable));
+                this.postStateChange(this.documentController.document.state);
+                if (this.documentController.document.isLive()) {
+                    const stateChangeDisposable = this.documentController.document.onStateChange((ev) => this.postStateChange(ev.state, stateChangeDisposable));
                 }
                 break;
             default:
@@ -129,7 +153,7 @@ export class MSBuildLogViewerController implements DisposableLike {
         switch (e.type) {
             case 'root': {
                 const requestId = e.requestId;
-                const node = await this.document.requestRoot();
+                const node = await this.documentController.document.requestRoot();
                 const reply: CodeToWebviewNodeReply = {
                     type: 'node',
                     requestId,
@@ -148,7 +172,7 @@ export class MSBuildLogViewerController implements DisposableLike {
                 let reply: CodeToWebviewReply;
                 switch (e.type) {
                     case 'node':
-                        const node = await this.document.requestNode(id);
+                        const node = await this.documentController.document.requestNode(id);
                         reply = {
                             type: 'node',
                             requestId,
@@ -156,7 +180,7 @@ export class MSBuildLogViewerController implements DisposableLike {
                         };
                         break;
                     case 'manyNodes':
-                        const nodes = await this.document.requestManyNodes(id, e.count);
+                        const nodes = await this.documentController.document.requestManyNodes(id, e.count);
                         reply = {
                             type: 'manyNodes',
                             requestId,
@@ -164,7 +188,7 @@ export class MSBuildLogViewerController implements DisposableLike {
                         }
                         break;
                     case 'summarizeNode':
-                        const summaryNodes = await this.document.requestNodeSummary(id);
+                        const summaryNodes = await this.documentController.document.requestNodeSummary(id);
                         reply = {
                             type: 'manyNodes',
                             requestId,
@@ -172,7 +196,7 @@ export class MSBuildLogViewerController implements DisposableLike {
                         }
                         break;
                     case 'nodeFullText':
-                        const fullText = await this.document.requestNodeFullText(id);
+                        const fullText = await this.documentController.document.requestNodeFullText(id);
                         reply = {
                             type: 'fullText',
                             requestId,

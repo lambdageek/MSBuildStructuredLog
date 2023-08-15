@@ -1,3 +1,3 @@
 export { activateEditorProvider } from './editor-provider';
 
-export { activeLogViewers, ActiveViews } from './active-views';
+export { ControllerGroup, activeLogViewers, ActiveViews } from './active-views';

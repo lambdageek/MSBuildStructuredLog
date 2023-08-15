@@ -1,50 +1,55 @@
 import * as vscode from 'vscode';
-import { MSBuildLogViewerController } from '../controller';
+import { DocumentController, EditorController } from '../controller';
+
+export interface ControllerGroup {
+    documentController: DocumentController;
+    editorController: EditorController;
+}
 
 class ActiveViewsImpl {
-    private _activeController: MSBuildLogViewerController | undefined;
-    private _allControllers: MSBuildLogViewerController[] = [];
-    private _onFirstViewerOpened: vscode.EventEmitter<MSBuildLogViewerController> = new vscode.EventEmitter<MSBuildLogViewerController>();
-    private _onLastViewerClosed: vscode.EventEmitter<MSBuildLogViewerController> = new vscode.EventEmitter<MSBuildLogViewerController>();
-    private _onViewerAdded: vscode.EventEmitter<MSBuildLogViewerController> = new vscode.EventEmitter<MSBuildLogViewerController>();
-    private _onViewerDisposed: vscode.EventEmitter<MSBuildLogViewerController> = new vscode.EventEmitter<MSBuildLogViewerController>();
+    private _activeController: ControllerGroup | undefined;
+    private _allControllers: ControllerGroup[] = [];
+    private _onFirstViewerOpened: vscode.EventEmitter<ControllerGroup> = new vscode.EventEmitter<ControllerGroup>();
+    private _onLastViewerClosed: vscode.EventEmitter<ControllerGroup> = new vscode.EventEmitter<ControllerGroup>();
+    private _onViewerAdded: vscode.EventEmitter<ControllerGroup> = new vscode.EventEmitter<ControllerGroup>();
+    private _onViewerDisposed: vscode.EventEmitter<ControllerGroup> = new vscode.EventEmitter<ControllerGroup>();
 
     constructor() { }
 
-    get activeController(): MSBuildLogViewerController | undefined {
+    get activeController(): ControllerGroup | undefined {
         return this._activeController;
     }
 
     get activeWebviewPanel(): vscode.WebviewPanel | undefined {
-        return this._activeController?.viewer.webviewPanel;
+        return this._activeController?.editorController.viewer.webviewPanel;
     }
 
-    get onFirstViewerOpened(): vscode.Event<MSBuildLogViewerController> {
+    get onFirstViewerOpened(): vscode.Event<ControllerGroup> {
         return this._onFirstViewerOpened.event;
     }
-    get onLastViewerClosed(): vscode.Event<MSBuildLogViewerController> {
+    get onLastViewerClosed(): vscode.Event<ControllerGroup> {
         return this._onLastViewerClosed.event;
     }
 
-    get onViewerAdded(): vscode.Event<MSBuildLogViewerController> {
+    get onViewerAdded(): vscode.Event<ControllerGroup> {
         return this._onViewerAdded.event;
     }
 
-    get onViewerDisposed(): vscode.Event<MSBuildLogViewerController> {
+    get onViewerDisposed(): vscode.Event<ControllerGroup> {
         return this._onViewerDisposed.event;
     }
 
-    get allControllers(): MSBuildLogViewerController[] {
+    get allControllers(): ControllerGroup[] {
         return [...this._allControllers];
     }
 
-    getController(uri: vscode.Uri): MSBuildLogViewerController | undefined {
-        return this._allControllers.find(c => c.document.uri.toString() === uri.toString());
+    getController(uri: vscode.Uri): ControllerGroup | undefined {
+        return this._allControllers.find(c => c.documentController.document.uri.toString() === uri.toString());
     }
 
-    add(controller: MSBuildLogViewerController) {
+    add(controller: ControllerGroup) {
         const first = this._allControllers.length === 0;
-        const webviewPanel = controller.viewer.webviewPanel;
+        const webviewPanel = controller.editorController.viewer.webviewPanel;
         this._activeController = controller;
         this._allControllers.push(controller);
         webviewPanel.onDidChangeViewState((e) => {

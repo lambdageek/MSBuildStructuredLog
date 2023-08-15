@@ -2,8 +2,8 @@
 import * as vscode from 'vscode';
 
 import { SearchResult } from '../../../shared/model';
-import { activeLogViewers } from '../editor';
-import { MSBuildLogViewerController, SearchResultController } from '../controller';
+import { ControllerGroup, activeLogViewers } from '../editor';
+import { DocumentController, SearchResultController } from '../controller';
 import { DisposableLike } from '../../../shared/disposable';
 
 
@@ -15,9 +15,12 @@ class SearchSideViewController implements DisposableLike {
         readonly searchResultsTreeView: vscode.TreeView<SearchResult>) {
         this.subscriptions.push(overviewTreeDataProvider);
         this.subscriptions.push(overviewTreeView);
+        this.subscriptions.push(searchResultsTreeDataProvider);
         this.subscriptions.push(searchResultsTreeView);
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', this.runSearch.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', this.revealSearchResults.bind(this)));
+
+        this.subscriptions.push(activeLogViewers.onViewerDisposed(this.unsetSearchResultsControllerWhenEditorClosed.bind(this)));
     }
 
     dispose() {
@@ -33,7 +36,7 @@ class SearchSideViewController implements DisposableLike {
         treeDataProvider.controller = controller;
     }
 
-    async runSearch(controller: MSBuildLogViewerController, query: string): Promise<void> {
+    async runSearch(controller: DocumentController, query: string): Promise<void> {
         const search = controller.newSearch(query);
         const uri = controller.document.uri;
         vscode.window.showInformationMessage(`Searching for ${query} in ${uri.toString()}`);
@@ -42,11 +45,19 @@ class SearchSideViewController implements DisposableLike {
         await this.revealSearchResults(search, this.searchResultsTreeDataProvider);
         //vscode.window.showInformationMessage(`Found ${search.results.length} results for ${query} in ${uri.toString()}`);
     }
+
+    unsetSearchResultsControllerWhenEditorClosed(closingController: ControllerGroup) {
+        if (this.searchResultsTreeDataProvider.controller?.controller === closingController.documentController) {
+            this.searchResultsTreeDataProvider.controller = null;
+        }
+    }
+
+
 }
 
 interface OverviewItemDocument {
     type: "document";
-    controller: MSBuildLogViewerController;
+    controller: DocumentController;
 }
 
 function isOverviewItemDocument(x: unknown): x is OverviewItemDocument {
@@ -66,7 +77,7 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
     constructor(readonly searchResultsTreeDataProvider: SearchResultsTreeDataProvider) {
         this.subscriptions.push(activeLogViewers.onViewerAdded((controller) => {
             this._onDidChangeTreeData.fire(undefined);
-            controller.onSearchAdded(() => {
+            controller.documentController.onSearchAdded(() => {
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
         }));
@@ -84,7 +95,7 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
 
     getChildren(element?: OverviewItem): vscode.ProviderResult<OverviewItem[]> {
         if (!element) {
-            return activeLogViewers.allControllers.map(d => ({ type: "document", controller: d }));
+            return activeLogViewers.allControllers.map(d => ({ type: "document", controller: d.documentController }));
         }
         if (isOverviewItemDocument(element)) {
             return element.controller.searches.map(s => {
@@ -129,11 +140,16 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
     }
 }
 
-class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchResult> {
+class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchResult>, DisposableLike {
+    private readonly subscriptions: DisposableLike[] = [];
     private _onDidChangeTreeData: vscode.EventEmitter<SearchResult | undefined> = new vscode.EventEmitter<SearchResult | undefined>();
     private _controller: SearchResultController | null = null;
-    private _onControllerChanged = new vscode.EventEmitter<SearchResultController | null>();
     constructor() {
+    }
+
+    dispose() {
+        this.subscriptions.forEach(d => d.dispose());
+        this.subscriptions.length = 0;
     }
 
     get controller(): SearchResultController | null {
@@ -142,7 +158,6 @@ class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchRes
 
     set controller(value: SearchResultController | null) {
         this._controller = value;
-        this._onControllerChanged.fire(value);
         this._onDidChangeTreeData.fire(undefined);
     }
 
@@ -183,18 +198,18 @@ async function registerSideView(): Promise<SearchSideViewController> {
     return controller;
 }
 
-async function revealNode(controller: SearchResultController, result: SearchResult) {
-    await controller.controller.revealNode(result);
+async function revealSearchResult(controller: SearchResultController, result: SearchResult) {
+    await controller.reveal(result);
 }
 
 async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<void> {
-    let controller: MSBuildLogViewerController | undefined;
+    let controller: DocumentController | undefined;
     if (isOverviewItemDocument(uri)) {
         controller = uri.controller;
     } else if (uri === undefined) {
-        controller = activeLogViewers.activeController;
+        controller = activeLogViewers.activeController?.documentController;
     } else {
-        controller = activeLogViewers.getController(uri);
+        controller = activeLogViewers.getController(uri)?.documentController;
     }
     if (controller === undefined) {
         vscode.window.showErrorMessage("No active document");
@@ -216,5 +231,5 @@ async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<
 export async function activateSearch(context: vscode.ExtensionContext) {
     context.subscriptions.push(await registerSideView());
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.start-search', startNewSearch));
-    context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', revealNode));
+    context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', revealSearchResult));
 }

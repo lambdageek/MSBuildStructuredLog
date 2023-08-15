@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 import { AbstractMSBuildLogDocument, MSBuildLogDocumentFactory } from '../document';
 import { MSBuildLogViewer } from './viewer';
-import { MSBuildLogViewerController } from '../controller';
+import { EditorController, DocumentController } from '../controller';
 import { activeLogViewers } from './active-views';
 
 class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBuildLogDocument> {
@@ -37,10 +37,11 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
 
     async resolveCustomEditor(document: AbstractMSBuildLogDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken): Promise<void> {
         const viewer = new MSBuildLogViewer(this.context, webviewPanel, this.out);
-        const controller = new MSBuildLogViewerController(this.context, document, viewer, this.out);
-        activeLogViewers.add(controller);
+        const documentController = new DocumentController(this.context, document, this.out);
+        const editorController = new EditorController(viewer, documentController, this.out);
+        activeLogViewers.add({ editorController, documentController });
         await viewer.prepare(document.uri,
-            (e, documentReady) => controller.onContentLoaded(e, documentReady)
+            (e, documentReady) => editorController.onContentLoaded(e, documentReady)
         );
     }
 
