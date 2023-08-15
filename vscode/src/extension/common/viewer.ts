@@ -57,8 +57,7 @@ export class MSBuildLogViewer implements DisposableLike {
         });
         this.webviewPanel.webview.html = await this.getHtmlForWebview(this.webviewPanel.webview, uri, fsPath);
     }
-    async getHtmlForWebview(webview: Webview, uri: Uri, documentFilePath: string): Promise<string> {
-        const documentVSCodeUriEncoded = encodeURIComponent(JSON.stringify(uri));
+    async getHtmlForWebview(webview: Webview, _uri: Uri, documentFilePath: string): Promise<string> {
         const resetCssContent = await this.assetContent('reset.css');
         const vscodeCssContent = await this.assetContent('vscode.css');
         const logviewerCssContent = await this.assetContent('logviewer.css');
@@ -94,9 +93,6 @@ export class MSBuildLogViewer implements DisposableLike {
         <body>
             <div id="content">
                 <div id="grid-column-parent">
-                    <div id="search">
-                        <div><a href="command:msbuild-structured-log-viewer.start-search?${documentVSCodeUriEncoded}" title="Search" id="search-link" disabled>New Search...</a></div>
-                    </div>
                     <div id="logview-root-node"></div>
                     <div id="side-view"></div>
                     <div id="status-line">Starting binlog viewer for ${documentFilePath}...</div>

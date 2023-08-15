@@ -24,9 +24,8 @@ div#grid-column-parent {
     display: grid;
     height: 100vh;
     grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
-    grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(2ex, 6ex);
+    grid-template-rows: minmax(0, 1fr) minmax(2ex, 6ex);
     grid-template-areas:
-        "search search"
         "main main"
         "status status";
 }
@@ -34,7 +33,6 @@ div#grid-column-parent {
 
 div#grid-column-parent.side-view-open {
     grid-template-areas:
-        "search search"
         "main side"
         "status status";
 }
@@ -46,9 +44,8 @@ div#grid-column-parent.side-view-open {
         display: grid;
         height: 100vh;
         grid-template-columns: minmax(0, auto);
-        grid-template-rows: minmax(0, auto) minmax(0, 3fr) minmax(0, 2fr) minmax(2ex, 6ex);
+        grid-template-rows: minmax(0, 3fr) minmax(0, 2fr) minmax(2ex, 6ex);
         grid-template-areas:
-            "search"
             "main"
             "main"
             "status";
@@ -57,7 +54,6 @@ div#grid-column-parent.side-view-open {
 
     div#grid-column-parent.side-view-open {
         grid-template-areas:
-            "search"
             "main"
             "side"
             "status";

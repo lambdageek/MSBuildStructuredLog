@@ -59,6 +59,13 @@
         "when": "view == msbuild-structured-log-viewer.overview && viewItem == document",
         "group": "inline"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "msbuild-structured-log-viewer.start-search",
+          "when": "activeCustomEditorId == 'msbuild-structured-log.base'",
+          "group": "navigation"
+        }
       ]
     },
 		"commands": [
@@ -67,6 +74,13 @@
         "command": "msbuild-structured-log-viewer.start-search",
         "title": "Search MSBuild Log",
         "icon": "$(search-view-icon)",
+        "when": "activeCustomEditorId == 'msbuild-structured-log.base'"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "msbuild-structured-log-viewer.start-search",
+        "key": "ctrl+f",
         "when": "activeCustomEditorId == 'msbuild-structured-log.base'"
       }
     ]
