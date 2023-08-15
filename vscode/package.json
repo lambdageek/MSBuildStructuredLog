@@ -81,6 +81,7 @@
       {
         "command": "msbuild-structured-log-viewer.start-search",
         "key": "ctrl+f",
+        "mac": "cmd+f",
         "when": "activeCustomEditorId == 'msbuild-structured-log.base'"
       }
     ]
