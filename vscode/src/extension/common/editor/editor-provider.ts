@@ -1,9 +1,9 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import { AbstractMSBuildLogDocument, MSBuildLogDocumentFactory } from './document';
+import { AbstractMSBuildLogDocument, MSBuildLogDocumentFactory } from '../document';
 import { MSBuildLogViewer } from './viewer';
-import { MSBuildLogViewerController } from './controller';
+import { MSBuildLogViewerController } from '../controller';
 
 
 class ActiveViews {

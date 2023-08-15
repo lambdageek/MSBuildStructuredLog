@@ -8,13 +8,13 @@ import {
     Uri,
     workspace
 } from "vscode";
-import { DisposableLike } from "../../shared/disposable";
+import { DisposableLike } from "../../../shared/disposable";
 
-import { assertNever } from "../../shared/assert-never";
+import { assertNever } from "../../../shared/assert-never";
 
-import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, WebviewToCodeContentLoaded } from "../../shared/webview-to-code";
+import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, WebviewToCodeContentLoaded } from "../../../shared/webview-to-code";
 
-import { CodeToWebviewEvent, CodeToWebviewReply } from "../../shared/code-to-webview";
+import { CodeToWebviewEvent, CodeToWebviewReply } from "../../../shared/code-to-webview";
 
 
 export class MSBuildLogViewer implements DisposableLike {

@@ -1,10 +1,10 @@
 
 import * as vscode from 'vscode';
 
-import { SearchResult } from '../../shared/model';
-import { activeLogViewers } from './editor-provider';
-import { MSBuildLogViewerController, SearchResultController } from './controller';
-import { DisposableLike } from '../../shared/disposable';
+import { SearchResult } from '../../../shared/model';
+import { activeLogViewers } from '../editor/editor-provider';
+import { MSBuildLogViewerController, SearchResultController } from '../controller';
+import { DisposableLike } from '../../../shared/disposable';
 
 
 class SearchSideViewController implements DisposableLike {

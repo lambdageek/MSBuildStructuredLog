@@ -18,7 +18,7 @@ import { SearchResult } from "../../shared/model";
 
 import { SubprocessState } from "./subprocess/subprocess-state";
 
-import { MSBuildLogViewer } from "./viewer";
+import { MSBuildLogViewer } from "./editor/viewer";
 
 export class SearchResultController implements DisposableLike {
     readonly disposables: DisposableLike[] = [];

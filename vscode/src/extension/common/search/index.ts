@@ -1,0 +1,1 @@
+export { activateSearch } from './search';
