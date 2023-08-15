@@ -4,7 +4,7 @@ import {
     EventEmitter,
     LogOutputChannel,
 } from "vscode";
-import { MSBuildLogDocument } from "./MSBuildLogDocument";
+import { AbstractMSBuildLogDocument } from "./document";
 
 import { DisposableLike } from "../../shared/disposable";
 
@@ -16,7 +16,7 @@ import { CodeToWebviewReply, CodeToWebviewNodeReply } from "../../shared/code-to
 
 import { SearchResult } from "../../shared/model";
 
-import { WasmState } from "./wasm/engine";
+import { SubprocessState } from "./subprocess/subprocess-state";
 
 import { MSBuildLogViewer } from "./viewer";
 
@@ -55,7 +55,7 @@ export class MSBuildLogViewerController implements DisposableLike {
     readonly _searches: SearchResultController[];
     readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
 
-    constructor(readonly context: ExtensionContext, readonly document: MSBuildLogDocument, readonly viewer: MSBuildLogViewer, readonly out?: LogOutputChannel) {
+    constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly viewer: MSBuildLogViewer, readonly out?: LogOutputChannel) {
         this.disposables = [];
         this._searches = [];
     }
@@ -183,22 +183,22 @@ export class MSBuildLogViewerController implements DisposableLike {
         }
     }
 
-    postStateChange(state: WasmState, disposable?: Disposable) {
+    postStateChange(state: SubprocessState, disposable?: Disposable) {
         switch (state) {
-            case WasmState.LOADED:
-            case WasmState.STARTED:
+            case SubprocessState.LOADED:
+            case SubprocessState.STARTED:
                 /* ignore */
                 break;
-            case WasmState.READY:
+            case SubprocessState.READY:
                 this.viewer.postToWebview({ type: 'engineStateChange', state: 'ready' });
                 break;
-            case WasmState.SHUTTING_DOWN:
-            case WasmState.TERMINATING:
-            case WasmState.EXIT_SUCCESS:
+            case SubprocessState.SHUTTING_DOWN:
+            case SubprocessState.TERMINATING:
+            case SubprocessState.EXIT_SUCCESS:
                 this.viewer.postToWebview({ type: 'engineStateChange', state: 'done' });
                 disposable?.dispose(); // unsubscribe
                 break;
-            case WasmState.EXIT_FAILURE:
+            case SubprocessState.EXIT_FAILURE:
                 this.viewer.postToWebview({ type: 'engineStateChange', state: 'faulted' });
                 disposable?.dispose(); // unsubscribe
                 break;

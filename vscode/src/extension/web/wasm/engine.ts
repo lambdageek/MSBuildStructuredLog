@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { SubprocessState, SubprocessStateChangeEvent } from '../subprocess/subprocess-state';
 import { Wasm, WasmProcess } from '@vscode/wasm-wasi';
 import { DisposableLike } from '../../../shared/disposable';
 
@@ -13,57 +14,41 @@ export async function loadWasm(): Promise<Wasm> {
     return wasm;
 }
 
-/* application logic is responsible for changing state to READY and SHUTTING_DOWN
- * based on interactinos with the app.
- */
-export enum WasmState {
-    LOADED,
-    STARTED,
-    READY,
-    SHUTTING_DOWN,
-    TERMINATING,
-    EXIT_SUCCESS,
-    EXIT_FAILURE,
-}
-
-export interface WasmStateChangeEvent {
-    state: WasmState;
-}
 
 
 export class WasmEngine implements DisposableLike {
     disposables: DisposableLike[];
-    _state: WasmState;
-    readonly stateChangeEmitter: vscode.EventEmitter<WasmStateChangeEvent>;
+    _state: SubprocessState;
+    readonly stateChangeEmitter: vscode.EventEmitter<SubprocessStateChangeEvent>;
     constructor(readonly process: WasmProcess, readonly logOutput?: vscode.LogOutputChannel) {
-        this._state = WasmState.LOADED;
+        this._state = SubprocessState.LOADED;
         this.disposables = [];
-        this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<WasmStateChangeEvent>());
+        this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<SubprocessStateChangeEvent>());
 
     }
 
     runProcess() {
-        this._state = WasmState.STARTED;
+        this._state = SubprocessState.STARTED;
         this.process.run()
             .then((exitCode) => {
                 switch (exitCode) {
                     case 0:
-                        this._state = WasmState.EXIT_SUCCESS;
+                        this._state = SubprocessState.EXIT_SUCCESS;
                         break;
                     default:
                         this.logOutput?.warn(`wasm process returned with exit code ${exitCode}`)
-                        this._state = WasmState.EXIT_FAILURE;
+                        this._state = SubprocessState.EXIT_FAILURE;
                         break;
                 }
             })
             .catch((reason) => {
                 this.logOutput?.warn(`wasm process threw ${reason}`);
-                this._state = WasmState.EXIT_FAILURE;
+                this._state = SubprocessState.EXIT_FAILURE;
             });
         this.fireStateChange();
     }
 
-    applicationChangedState(newState: WasmState.READY | WasmState.SHUTTING_DOWN) {
+    applicationChangedState(newState: SubprocessState.READY | SubprocessState.SHUTTING_DOWN) {
         this._state = newState;
         this.fireStateChange();
     }
@@ -71,16 +56,16 @@ export class WasmEngine implements DisposableLike {
     fireStateChange() {
         this.stateChangeEmitter.fire({ state: this._state });
     }
-    get onStateChange(): vscode.Event<WasmStateChangeEvent> { return this.stateChangeEmitter.event; }
+    get onStateChange(): vscode.Event<SubprocessStateChangeEvent> { return this.stateChangeEmitter.event; }
 
-    get state(): WasmState { return this._state; }
+    get state(): SubprocessState { return this._state; }
 
     isLive(): boolean {
         switch (this._state) {
-            case WasmState.SHUTTING_DOWN:
-            case WasmState.TERMINATING:
-            case WasmState.EXIT_SUCCESS:
-            case WasmState.EXIT_FAILURE:
+            case SubprocessState.SHUTTING_DOWN:
+            case SubprocessState.TERMINATING:
+            case SubprocessState.EXIT_SUCCESS:
+            case SubprocessState.EXIT_FAILURE:
                 return false;
             default:
                 return true;
@@ -88,7 +73,7 @@ export class WasmEngine implements DisposableLike {
     }
 
     dispose() {
-        this._state = WasmState.TERMINATING;
+        this._state = SubprocessState.TERMINATING;
         this.process.terminate();
         this.disposables.forEach(d => d.dispose());
     }
