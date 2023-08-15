@@ -23,47 +23,32 @@ div.treeNode {
 div#grid-column-parent {
     display: grid;
     height: 100vh;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
     grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(2ex, 6ex);
     grid-template-areas:
-        "search search search"
-        "main main main"
-        "status status status";
+        "search search"
+        "main main"
+        "status status";
 }
 
 
 div#grid-column-parent.side-view-open {
     grid-template-areas:
-        "search search search"
-        "main main side"
-        "status status status";
+        "search search"
+        "main side"
+        "status status";
 }
 
-div#grid-column-parent.search-results-open {
-    grid-template-areas:
-        "search search search"
-        "results main main"
-        "status status status";
-}
-
-div#grid-column-parent.side-view-open.search-results-open {
-    grid-template-areas:
-        "search search search"
-        "results main side"
-        "status status status";
-}
-
-@media (max-width: 720px) {
+@media (max-width: 1600px) {
 
     /* single column */
     div#grid-column-parent {
         display: grid;
         height: 100vh;
         grid-template-columns: minmax(0, auto);
-        grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr) minmax(2ex, 6ex);
+        grid-template-rows: minmax(0, auto) minmax(0, 3fr) minmax(0, 2fr) minmax(2ex, 6ex);
         grid-template-areas:
             "search"
-            "main"
             "main"
             "main"
             "status";
@@ -74,29 +59,9 @@ div#grid-column-parent.side-view-open.search-results-open {
         grid-template-areas:
             "search"
             "main"
-            "main"
             "side"
             "status";
     }
-
-    div#grid-column-parent.search-results-open {
-        grid-template-areas:
-            "search"
-            "results"
-            "main"
-            "main"
-            "status";
-    }
-
-    div#grid-column-parent.side-view-open.search-results-open {
-        grid-template-areas:
-            "search"
-            "results"
-            "main"
-            "side"
-            "status";
-    }
-
 
 }
 
