@@ -6,7 +6,8 @@ import { DisposableLike } from '../../shared/disposable';
 import { SyncRequestDispatch } from '../../shared/sync-request';
 
 import {
-    WasmToCodeReply, WasmToCodeNodeReply, WasmToCodeManyNodesReply, WasmToCodeFullTextReply, WasmToCodeSearchResultsReply,
+    WasmToCodeReply, WasmToCodeEvent, WasmToCodeNodeReply, WasmToCodeManyNodesReply, WasmToCodeFullTextReply, WasmToCodeSearchResultsReply,
+    isWasmToCodeMessage,
 } from './wasm-to-code';
 import { CodeToWasmCommand } from './code-to-wasm';
 
@@ -127,5 +128,49 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
+    abstract subprocessChangedApplicationState(newState: SubprocessState): void;
+
+    gotStdOut(v: unknown) {
+        this.out.info(`received from wasm process: ${v}`);
+        if (isWasmToCodeMessage(v)) {
+            const value = v as WasmToCodeReply | WasmToCodeEvent;
+            switch (value.type) {
+                case 'ready':
+                    this.out.info(`wasm process signalled Ready`);
+                    this.subprocessChangedApplicationState(SubprocessState.READY);
+                    break;
+                case 'done':
+                    this.out.info(`wasm process signalled Done`);
+                    this.subprocessChangedApplicationState(SubprocessState.SHUTTING_DOWN);
+                    break;
+                case 'node':
+                case 'manyNodes':
+                    const nodeReply = value as WasmToCodeReply;
+                    const requestId = nodeReply.requestId;
+                    this._requestDispatch.satisfy(requestId, nodeReply);
+                    break;
+                case 'fullText':
+                    const fullTextReply = value as WasmToCodeFullTextReply;
+                    const fullTextRequestId = fullTextReply.requestId;
+                    this._requestDispatch.satisfy(fullTextRequestId, fullTextReply);
+                    break;
+                case 'searchResults':
+                    const searchResultsReply = value as WasmToCodeSearchResultsReply;
+                    const searchResultsRequestId = searchResultsReply.requestId;
+                    this._requestDispatch.satisfy(searchResultsRequestId, searchResultsReply);
+                    break;
+                default:
+                    assertNever(value);
+                    this.out.warn(`received unknown message from wasm: ${(<any>value).type}`);
+                    break;
+            }
+        }
+    }
+    gotStdErr(value: string) {
+        this.out.error(value);
+    }
+
+
 }
 
+export type MSBuildLogDocumentFactory = (context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel) => Promise<AbstractMSBuildLogDocument>

@@ -2,17 +2,12 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import {
-    WasmToCodeReply, WasmToCodeEvent, WasmToCodeFullTextReply, WasmToCodeSearchResultsReply,
-    isWasmToCodeMessage
-} from './wasm-to-code';
 import { CodeToWasmCommand } from './code-to-wasm';
 
 import { polyfillStreams, jsonFromChunks, stringFromChunks } from './streaming';
 import { SubprocessState, SubprocessStateChangeEvent } from './subprocess/subprocess-state';
 import { loadWasm, WasmEngine } from './wasm/engine';
 import * as wasiWasm from '@vscode/wasm-wasi';
-import { assertNever } from '../../shared/assert-never';
 
 import { AbstractMSBuildLogDocument } from './document';
 
@@ -28,44 +23,8 @@ export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
     get state(): SubprocessState { return this._engine.state; }
     isLive(): boolean { return this._engine.isLive(); }
 
-    gotStdOut(v: unknown) {
-        this.out.info(`received from wasm process: ${v}`);
-        if (isWasmToCodeMessage(v)) {
-            const value = v as WasmToCodeReply | WasmToCodeEvent;
-            switch (value.type) {
-                case 'ready':
-                    this.out.info(`wasm process signalled Ready`);
-                    this._engine.applicationChangedState(SubprocessState.READY);
-                    break;
-                case 'done':
-                    this.out.info(`wasm process signalled Done`);
-                    this._engine.applicationChangedState(SubprocessState.SHUTTING_DOWN);
-                    break;
-                case 'node':
-                case 'manyNodes':
-                    const nodeReply = value as WasmToCodeReply;
-                    const requestId = nodeReply.requestId;
-                    this._requestDispatch.satisfy(requestId, nodeReply);
-                    break;
-                case 'fullText':
-                    const fullTextReply = value as WasmToCodeFullTextReply;
-                    const fullTextRequestId = fullTextReply.requestId;
-                    this._requestDispatch.satisfy(fullTextRequestId, fullTextReply);
-                    break;
-                case 'searchResults':
-                    const searchResultsReply = value as WasmToCodeSearchResultsReply;
-                    const searchResultsRequestId = searchResultsReply.requestId;
-                    this._requestDispatch.satisfy(searchResultsRequestId, searchResultsReply);
-                    break;
-                default:
-                    assertNever(value);
-                    this.out.warn(`received unknown message from wasm: ${(<any>value).type}`);
-                    break;
-            }
-        }
-    }
-    gotStdErr(value: string) {
-        this.out.error(value);
+    subprocessChangedApplicationState(state: SubprocessState.READY | SubprocessState.SHUTTING_DOWN) {
+        this._engine.applicationChangedState(state);
     }
 
     get onStateChange(): vscode.Event<SubprocessStateChangeEvent> { return this._engine.onStateChange; }
@@ -77,7 +36,7 @@ export class MSBuildLogDocumentWasi extends AbstractMSBuildLogDocument {
 
 }
 
-export async function openMSBuildLogDocument(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<AbstractMSBuildLogDocument> {
+export async function openMSBuildLogDocumentWasi(context: vscode.ExtensionContext, uri: Uri, out: vscode.LogOutputChannel): Promise<AbstractMSBuildLogDocument> {
     out.info(`opening msbuild log ${uri}`);
     const wasm = await loadWasm();
     await polyfillStreams();

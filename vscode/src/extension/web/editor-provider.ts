@@ -1,8 +1,7 @@
 import { Uri } from 'vscode';
 import * as vscode from 'vscode';
 
-import { AbstractMSBuildLogDocument } from './document';
-import { openMSBuildLogDocument } from './MSBuildLogDocumentWasi';
+import { AbstractMSBuildLogDocument, MSBuildLogDocumentFactory } from './document';
 import { MSBuildLogViewer } from './viewer';
 import { MSBuildLogViewerController } from './controller';
 
@@ -82,7 +81,7 @@ export let activeLogViewers: ActiveViews = new ActiveViews();
 
 class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBuildLogDocument> {
 
-    public static async register(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
+    public static async register(context: vscode.ExtensionContext, documentFactory: MSBuildLogDocumentFactory): Promise<vscode.Disposable> {
         const logOutputChannelName = 'MSBuild Log View';
         const out = vscode.window.createOutputChannel(logOutputChannelName, { log: true });
         //await vscode.commands.executeCommand('workbench.action.setLogLevel', logOutputChannelName, 'Trace');
@@ -91,7 +90,7 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
         }
 
         return vscode.window.registerCustomEditorProvider(EditorProvider.viewType,
-            new EditorProvider(context, out),
+            new EditorProvider(context, documentFactory, out),
             {
                 webviewOptions: {
                     enableFindWidget: true,
@@ -103,10 +102,10 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
 
     public static readonly viewType = 'msbuild-structured-log.base';
 
-    constructor(private readonly context: vscode.ExtensionContext, readonly out: vscode.LogOutputChannel) { }
+    constructor(private readonly context: vscode.ExtensionContext, private readonly documentFactory: MSBuildLogDocumentFactory, readonly out: vscode.LogOutputChannel) { }
 
     async openCustomDocument(uri: Uri, _openContext: vscode.CustomDocumentOpenContext, _token: vscode.CancellationToken): Promise<AbstractMSBuildLogDocument> {
-        return await openMSBuildLogDocument(this.context, uri, this.out);
+        return await this.documentFactory(this.context, uri, this.out);
     }
 
     async resolveCustomEditor(document: AbstractMSBuildLogDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken): Promise<void> {
@@ -120,12 +119,12 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
 
 }
 
-export async function activateEditorProvider(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
+export async function activateEditorProvider(context: vscode.ExtensionContext, documentFactory: MSBuildLogDocumentFactory): Promise<vscode.Disposable> {
     context.subscriptions.push(activeLogViewers.onFirstViewerOpened((_controller) => {
         vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer-isOpen', true);
     }));
     context.subscriptions.push(activeLogViewers.onLastViewerClosed((_controller) => {
         vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer-isOpen', false);
     }));
-    return await EditorProvider.register(context);
+    return await EditorProvider.register(context, documentFactory);
 }
