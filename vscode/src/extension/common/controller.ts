@@ -132,6 +132,7 @@ export class EditorController implements DisposableLike {
     }
 
     revealNode(node: SearchResult): void {
+        this.viewer.webviewPanel.reveal();
         this.viewer.postToWebview({ type: 'revealNode', node });
     }
 
