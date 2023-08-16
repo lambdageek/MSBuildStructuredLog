@@ -1,5 +1,5 @@
 {
-	"name": "msbuild-structuredlog-viewer",
+	"name": "msbuild-structured-log-viewer",
 	"private": "true",
 	"publisher": "lambdageek",
 	"version": "0.0.1",
@@ -75,12 +75,12 @@
 					"command": "msbuild-structured-log-viewer.start-search",
 					"when": "view == msbuild-structured-log-viewer.overview && viewItem == document",
 					"group": "inline"
-        },
-        {
-          "command": "msbuild-structured-log-viewer.clear-search",
-          "when": "view == msbuild-structured-log-viewer.overview && viewItem == search",
-          "group": "inline"
-        }
+				},
+				{
+					"command": "msbuild-structured-log-viewer.clear-search",
+					"when": "view == msbuild-structured-log-viewer.overview && viewItem == search",
+					"group": "inline"
+				}
 			],
 			"editor/title": [
 				{
@@ -97,14 +97,14 @@
 				"title": "Search MSBuild Log",
 				"icon": "$(search-view-icon)",
 				"when": "activeCustomEditorId == 'msbuild-structured-log.base'"
-      },
-      {
-        "category": "MSBuild Structured Log Viewer",
-        "command": "msbuild-structured-log-viewer.clear-search",
-        "title": "Clear Search",
-        "icon": "$(clear-all)",
-        "when": "view == msbuild-structured-log-viewer.overview && viewItem == search"
-      }
+			},
+			{
+				"category": "MSBuild Structured Log Viewer",
+				"command": "msbuild-structured-log-viewer.clear-search",
+				"title": "Clear Search",
+				"icon": "$(clear-all)",
+				"when": "view == msbuild-structured-log-viewer.overview && viewItem == search"
+			}
 		],
 		"keybindings": [
 			{
@@ -120,7 +120,7 @@
 		"compile:ts": "tsc -b tsconfig.json",
 		"build": "npm run build:dotnet && npm run build:dotnet-desktop && npm run build:js",
 		"build:js": "npm run compile:ts && npm run build:esbuild",
-		"build:dotnet": "npx shx mkdir -p ./dist && dotnet publish -c Release -r wasi-wasm ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist",
+		"build:dotnet": "npx shx mkdir -p ./dist/web && dotnet publish -c Release -r wasi-wasm ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl -p:VSCodeExtensionWasiPublishPath=$PWD/dist/web",
 		"build:dotnet-desktop": "npx shx mkdir -p ./dist/desktop/engine && dotnet publish -c Release --no-self-contained -o $PWD/dist/desktop/engine ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",

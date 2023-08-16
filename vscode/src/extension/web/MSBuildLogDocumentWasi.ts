@@ -54,7 +54,7 @@ export async function openMSBuildLogDocumentWasi(context: vscode.ExtensionContex
         },
         rootFileSystem
     };
-    const path = Uri.joinPath(context.extensionUri, 'dist', 'StructuredLogViewer.Vscode.Engine.wasm');
+    const path = Uri.joinPath(context.extensionUri, 'dist', 'web', 'StructuredLogViewer.Vscode.Engine.wasm');
     const moduleBytes = await vscode.workspace.fs.readFile(path);
     const module = await WebAssembly.compile(moduleBytes);
     out.info('creating process')
