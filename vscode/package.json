@@ -124,8 +124,10 @@
 		"build:dotnet-desktop": "npx shx mkdir -p ./dist/desktop/engine && dotnet publish -c Release --no-self-contained -o $PWD/dist/desktop/engine ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
-		"package": "vsce package --pre-release",
-		"gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
+    "package": "node ./script/stage-packages.js . packages && npm run package:staged-desktop && npm run package:staged-web",
+    "package:staged-desktop": "cd packages/desktop && vsce package --pre-release --no-dependencies --githubBranch wasi-single-thread -o ..",
+    "package:staged-web": "cd packages/web && vsce package --pre-release --no-dependencies --githubBranch wasi-single-thread -t web -o ..",
+    "gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
 		"@streamparser/json": "^0.0.16",
@@ -140,6 +142,7 @@
 		"@vscode/vsce": "^2.20.1",
 		"esbuild": "^0.18.20",
 		"eslint": "^8.47.0",
+		"glob": "^10.3.3",
 		"npx": "^10.2.2",
 		"serve": "^14.2.0",
 		"shx": "^0.3.4",

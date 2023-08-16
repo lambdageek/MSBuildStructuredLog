@@ -1,7 +1,9 @@
+packages/
 out/
 src/
 script/
 node_modules/
+.vscode-test-web/
 .vscodeignore
 .gitignore
 *~
