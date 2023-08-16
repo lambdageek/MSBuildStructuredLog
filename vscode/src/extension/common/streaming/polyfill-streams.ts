@@ -1,5 +1,5 @@
 async function dynamicImport(module: string): Promise<any> {
-    return await import(module);
+    return require(module);
 }
 
 export let streams: typeof globalThis = globalThis;

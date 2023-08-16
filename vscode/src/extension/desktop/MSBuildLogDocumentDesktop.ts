@@ -14,7 +14,7 @@ import type { CodeToDotnetCommand } from '../common/code-to-dotnet';
 import { DisposableLike } from '../../shared/disposable';
 
 async function dynamicImport(module: string): Promise<any> {
-    return await import(module);
+    return require(module);
 }
 
 async function nodeChildProcess(): Promise<typeof cp> {
