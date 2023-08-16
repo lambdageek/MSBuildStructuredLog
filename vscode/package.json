@@ -125,8 +125,8 @@
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
     "package": "node ./script/stage-packages.js . packages && npm run package:staged-desktop && npm run package:staged-web",
-    "package:staged-desktop": "cd packages/desktop && vsce package --pre-release --no-dependencies --githubBranch wasi-single-thread -o ..",
-    "package:staged-web": "cd packages/web && vsce package --pre-release --no-dependencies --githubBranch wasi-single-thread -t web -o ..",
+    "package:staged-desktop": "cd packages/desktop && vsce package --pre-release --no-dependencies --baseImageUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -o ..",
+    "package:staged-web": "cd packages/web && vsce package --pre-release --no-dependencies --baseImageUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -t web -o ..",
     "gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
