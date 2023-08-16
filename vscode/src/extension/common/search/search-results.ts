@@ -24,8 +24,6 @@ export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<Se
     private readonly subscriptions: DisposableLike[] = [];
     private _onDidChangeTreeData: vscode.EventEmitter<SearchResult | undefined> = new vscode.EventEmitter<SearchResult | undefined>();
     private _controller: SearchResultController | null = null;
-    constructor() {
-    }
 
     dispose() {
         this.subscriptions.forEach(d => d.dispose());
@@ -38,6 +36,12 @@ export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<Se
 
     set controller(value: SearchResultController | null) {
         this._controller = value;
+        this.controller?.onDidDispose(() => {
+            // if the controller is disposed and we're currently showing it, clear the tree
+            if (this.controller === value) {
+                this.controller = null;
+            }
+        });
         this._onDidChangeTreeData.fire(undefined);
     }
 

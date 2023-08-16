@@ -34,6 +34,7 @@ export class SearchResultController implements DisposableLike {
         this.disposables.forEach((d) => d.dispose());
         this.disposables.length = 0;
         this._results.length = 0;
+        this._onDidDispose.fire();
     }
 
     get onDidDispose() {
@@ -69,6 +70,7 @@ export class DocumentController implements DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
     readonly _searches: SearchResultController[] = []
     readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
+    readonly _onSearchRemoved: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchResultRevealed: EventEmitter<SearchResult> = new EventEmitter<SearchResult>();
     constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly out?: LogOutputChannel) {
 
@@ -79,12 +81,7 @@ export class DocumentController implements DisposableLike {
     }
     newSearch(query: string): SearchResultController {
         const search = new SearchResultController(this, query);
-        this.subscriptions.push(search.onDidDispose(() => {
-            const index = this._searches.indexOf(search);
-            if (index >= 0) {
-                this._searches.splice(index, 1);
-            }
-        }));
+        this.subscriptions.push(search.onDidDispose(this.removeSearch.bind(this, search, true)));
         this._searches.push(search);
         this._onSearchAdded.fire(search);
         return search;
@@ -98,12 +95,29 @@ export class DocumentController implements DisposableLike {
         return this._onSearchAdded.event;
     }
 
+    get onSearchRemoved() {
+        return this._onSearchRemoved.event;
+    }
+
     get onSearchResultRevealed() {
         return this._onSearchResultRevealed.event;
     }
 
     revealSearchResult(result: SearchResult): void {
         this._onSearchResultRevealed.fire(result);
+    }
+
+    removeSearch(search: SearchResultController, afterDispose?: boolean): void {
+        if (!afterDispose) {
+            this._onSearchRemoved.fire(search);
+        }
+        const index = this._searches.indexOf(search);
+        if (index >= 0) {
+            this._searches.splice(index, 1);
+        }
+        if (!afterDispose) {
+            search.dispose();
+        }
     }
 
 }

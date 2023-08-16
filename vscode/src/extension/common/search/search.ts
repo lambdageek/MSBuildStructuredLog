@@ -19,6 +19,7 @@ class SearchSideViewController implements DisposableLike {
         this.subscriptions.push(searchResultsTreeDataProvider);
         this.subscriptions.push(searchResultsTreeView);
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', this.runSearch.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.clear-search', this.clearSearch.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', this.revealSearchResults.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', this.revealSearchResultInEditor.bind(this)));
 
@@ -50,6 +51,10 @@ class SearchSideViewController implements DisposableLike {
         await this.revealSearchInOverview(search);
         await this.revealSearchResults(search, this.searchResultsTreeDataProvider);
         //vscode.window.showInformationMessage(`Found ${search.results.length} results for ${query} in ${uri.toString()}`);
+    }
+
+    async clearSearch(item: OverviewItemSearch) {
+        item.controller.controller.removeSearch(item.controller);
     }
 
     unsetSearchResultsControllerWhenEditorClosed(closingController: ControllerGroup) {
@@ -84,6 +89,9 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
         this.subscriptions.push(activeLogViewers.onViewerAdded((controller) => {
             this._onDidChangeTreeData.fire(undefined);
             controller.documentController.onSearchAdded(() => {
+                this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
+            });
+            controller.documentController.onSearchRemoved(() => {
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
         }));
@@ -140,6 +148,7 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                     command: "msbuild-structured-log-viewer.reveal-search-results",
                     arguments: [element.controller, this.searchResultsTreeDataProvider],
                 };
+                item.contextValue = "search";
                 return item;
             }
         }
