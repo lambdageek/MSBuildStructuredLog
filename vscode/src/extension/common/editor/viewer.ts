@@ -16,6 +16,14 @@ import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, Webvi
 
 import { CodeToWebviewEvent, CodeToWebviewReply } from "../../../shared/code-to-webview";
 
+function getNonce() {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
 
 export class MSBuildLogViewer implements DisposableLike {
     readonly disposables: DisposableLike[]
@@ -61,12 +69,8 @@ export class MSBuildLogViewer implements DisposableLike {
         const resetCssContent = await this.assetContent('reset.css');
         const vscodeCssContent = await this.assetContent('vscode.css');
         const logviewerCssContent = await this.assetContent('logviewer.css');
-        const resetCssUri = this.assetUri(webview, 'reset.css');
-        const vscodeCssUri = this.assetUri(webview, 'vscode.css');
-        const logviewerCssUri = this.assetUri(webview, 'logviewer.css');
         const scriptContent = await this.assetContent('webview.js', { kind: 'dist/webview' });
-        const scriptUri = this.assetUri(webview, 'webview.js', { kind: 'dist/webview' });
-        const nonce = "ABCDEF123";// FIXME
+        const nonce = getNonce();
         const html = /* html */ `
         <!DOCTYPE html>
         <html lang="en">
@@ -81,9 +85,6 @@ export class MSBuildLogViewer implements DisposableLike {
 
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-            <!-- link href="${resetCssUri}" rel="stylesheet" / -->
-            <!-- link href="${vscodeCssUri}" rel="stylesheet" / -->
-            <!-- link href="${logviewerCssUri}" rel="stylesheet" / -->
             <style nonce="${nonce}">${resetCssContent}</style>
             <style nonce="${nonce}">${vscodeCssContent}</style>
             <style nonce="${nonce}">${logviewerCssContent}</style>
@@ -98,16 +99,10 @@ export class MSBuildLogViewer implements DisposableLike {
                     <div id="status-line">Starting binlog viewer for ${documentFilePath}...</div>
                 </div>
             </div>
-            <!-- script nonce="${nonce}" src="${scriptUri}" --><!-- /script -->
             <script nonce="${nonce}">${scriptContent}</script>
         </body>
         </html>`;
         return html;
-    }
-
-    private assetUri(webview: Webview, asset: string, opts?: { kind?: string }): Uri {
-        const kind = opts?.kind ?? 'assets';
-        return webview.asWebviewUri(Uri.joinPath(this.context.extensionUri, kind, asset));
     }
 
     private async assetContent(assetFile: string, opts?: { kind?: string }): Promise<string> {
