@@ -49,13 +49,21 @@ class HoverButtons {
 
 }
 
+interface FeatureFlags {
+    bookmarks: boolean;
+}
+
 export class NodeTreeRenderer {
     private rootId: NodeId = -1;
 
     private readonly hoverButtons: HoverButtons;
-    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly sideViewController: SideViewController) {
-        this.hoverButtons = new HoverButtons(nodeRequester.nodeMapper, this);
-        this.hoverButtons.installEventHandlers(renderRoot);
+    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly sideViewController: SideViewController, readonly features?: FeatureFlags) {
+        if (features?.bookmarks) {
+            this.hoverButtons = new HoverButtons(nodeRequester.nodeMapper, this);
+            this.hoverButtons.installEventHandlers(renderRoot);
+        } else {
+            this.hoverButtons = null!;
+        }
     }
 
     private highlightedNode: NodeId = -1;
@@ -139,7 +147,7 @@ export class NodeTreeRenderer {
             nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}${isHighlighted}`);
             nodeSummary.innerHTML = `<span class='nodeKind'>${node.nodeKind}</span>${node.summary}`;
 
-            if (node.bookmarked) {
+            if (this.features?.bookmarks && node.bookmarked) {
                 this.addBookmarkWidget(nodeSummary, node);
             }
 

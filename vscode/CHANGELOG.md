@@ -3,6 +3,9 @@
 ## vNext
 
 - Bookmarks
+
+## v0.0.3
+
 - set `extensionKind: ["workspace", "ui"]` so that codespaces prefer to install the extension in the workspace. Installing in the browser runs into cross-origin isolation problems on Github Codespaces.
 
 ## v0.0.2
