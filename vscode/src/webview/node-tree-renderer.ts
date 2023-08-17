@@ -1,13 +1,62 @@
 
 import { NodeId, Node, FullyExploredNode, SearchResult } from "../shared/model";
 
+import { NodeMapper } from "./node-mapper";
 import { NodeRequester, requestFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
+class HoverButtons {
+    private lastHoveredSummary: HTMLParagraphElement | null = null;
+
+    constructor(readonly nodeMapper: NodeMapper, readonly renderer: NodeTreeRenderer) { }
+
+    installEventHandlers(renderRoot: HTMLElement) {
+        renderRoot.addEventListener('mouseover', this.addHoverButtonsOnMouseover.bind(this));
+    }
+
+    addHoverButtonsOnMouseover(ev: MouseEvent) {
+        const target = ev.target as HTMLElement;
+        if (target.tagName == 'P' && target.dataset.nodeId && this.lastHoveredSummary !== target) {
+            const prevHoveredSummary = this.lastHoveredSummary;
+            this.lastHoveredSummary = target as HTMLParagraphElement;
+            this.addHoverButtons(target as HTMLParagraphElement, target.dataset.nodeId);
+
+            if (prevHoveredSummary) {
+                this.removeHoverButtons(prevHoveredSummary);
+            }
+        }
+    };
+
+    addHoverButtons(target: HTMLParagraphElement, nodeIdData: string) {
+        const nodeId = parseInt(nodeIdData);
+        const node = this.nodeMapper.find(nodeId);
+        //target.classList.add('hovering'); for debugging
+        if (target.querySelector('.bookmark-widget') === null) {
+            this.renderer.addBookmarkWidget(target as HTMLParagraphElement, node!);
+        }
+    }
+
+    removeHoverButtons(prevTarget: HTMLParagraphElement) {
+        const prevNodeId = parseInt(prevTarget.dataset.nodeId!);
+        const prevNode = this.nodeMapper.find(prevNodeId);
+        //prevTarget.classList.remove('hovering');
+        if (prevNode === undefined || !prevNode.bookmarked) {
+            prevTarget.removeChild(prevTarget.querySelector('.bookmark-widget')!);
+        }
+    }
+
+
+}
+
 export class NodeTreeRenderer {
     private rootId: NodeId = -1;
-    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly sideViewController: SideViewController) { }
+
+    private readonly hoverButtons: HoverButtons;
+    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly sideViewController: SideViewController) {
+        this.hoverButtons = new HoverButtons(nodeRequester.nodeMapper, this);
+        this.hoverButtons.installEventHandlers(renderRoot);
+    }
 
     private highlightedNode: NodeId = -1;
     private openPath: NodeId[] = [];
@@ -90,6 +139,10 @@ export class NodeTreeRenderer {
             nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}${isHighlighted}`);
             nodeSummary.innerHTML = `<span class='nodeKind'>${node.nodeKind}</span>${node.summary}`;
 
+            if (node.bookmarked) {
+                this.addBookmarkWidget(nodeSummary, node);
+            }
+
             if (nodeSummaryAbridged) {
                 nodeSummary.appendChild(nodeSummaryAbridged);
             }
@@ -130,5 +183,36 @@ export class NodeTreeRenderer {
         this.refresh();
         this.renderRoot.querySelector(`[data-node-id="${result.nodeId.nodeId}"]`)?.scrollIntoView();
     }
+
+    toggleBookmark(node: Node) {
+        // TODO this.nodeRequester.toggleBookmark
+        if (node.bookmarked) {
+            this.nodeMapper.bookmark(node.nodeId, false);
+        } else {
+            this.nodeMapper.bookmark(node.nodeId, true);
+        }
+    }
+
+    setBookmarkWidgetContent(widget: HTMLSpanElement, bookmarked: boolean) {
+        const text = bookmarked ? '🔖' : '📍';
+        widget.replaceChildren(document.createTextNode(text));
+    }
+
+    addBookmarkWidget(target: HTMLParagraphElement, node: Node) {
+        const bookmarkWidget = document.createElement('span');
+        bookmarkWidget.classList.add('bookmark-widget');
+        if (node.bookmarked) {
+            bookmarkWidget.classList.add('bookmarked');
+        }
+        this.setBookmarkWidgetContent(bookmarkWidget, node.bookmarked ?? false);
+        bookmarkWidget.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.toggleBookmark(node);
+            this.setBookmarkWidgetContent(bookmarkWidget, node.bookmarked ?? false);
+        });
+        target.appendChild(bookmarkWidget);
+    }
+
 
 }

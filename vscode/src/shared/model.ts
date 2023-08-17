@@ -8,6 +8,7 @@ export interface Node {
     summary: string;
     fullyExplored?: boolean;
     abridged?: boolean;
+    bookmarked?: boolean;
     nodeKind: string;
     children?: NodeId[];
 }

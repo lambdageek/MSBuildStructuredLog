@@ -137,6 +137,10 @@ p.nodeSummary.highlighted {
     color: var(--vscode-list-activeSelectionForeground);
 }
 
+span.bookmark-widget:hover {
+    cursor: pointer;
+}
+
 ul.search-results {
     margin: 0;
     padding: 0;

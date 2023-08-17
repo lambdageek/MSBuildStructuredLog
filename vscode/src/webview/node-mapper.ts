@@ -7,12 +7,26 @@ export class NodeMapper {
 
     add(node: Node) {
         const fullyExplored = node.fullyExplored ?? false;
-        if (fullyExplored || !this.map.has(node.nodeId))
+        const prev = this.map.get(node.nodeId);
+        if (fullyExplored || prev === undefined) {
             this.map.set(node.nodeId, node);
+            // FIXME: do we really want the source of truth in here?
+            if (prev?.bookmarked) {
+                node.bookmarked = true;
+            }
+        }
     }
 
     find(nodeId: NodeId): Node | undefined {
         return this.map.get(nodeId);
+    }
+
+    bookmark(nodeId: NodeId, bookmarked: boolean) {
+        const node = this.find(nodeId);
+        if (node === undefined) {
+            return;
+        }
+        node.bookmarked = bookmarked;
     }
 
     async fullyExpore(nodeId: NodeId): Promise<FullyExploredNode> {
