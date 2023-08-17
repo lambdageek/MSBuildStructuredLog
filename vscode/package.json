@@ -2,7 +2,7 @@
 	"name": "msbuild-structured-log-viewer",
 	"private": "true",
 	"publisher": "lambdageek",
-	"version": "0.0.3",
+  "version": "0.0.4",
 	"displayName": "Experimental: MS Build Structured Log Viewer",
 	"description": "Experimental: MS Build Structured Log Viewer",
 	"categories": [
