@@ -136,8 +136,8 @@ export class NodeTreeRenderer {
                 nodeSummaryAbridged = document.createElement('span');
                 nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
                 const spyglassSpan = document.createElement('span');
-                spyglassSpan.setAttribute('class', 'spyglass');
-                spyglassSpan.appendChild(document.createTextNode(' 🔍'));
+                spyglassSpan.setAttribute('class', 'spyglass codicon codicon-search');
+                spyglassSpan.appendChild(document.createTextNode(/*' 🔍'*/'  '));
                 nodeSummaryAbridged.appendChild(spyglassSpan);
                 nodeSummaryAbridged.addEventListener('click', async () => this.onClickAbridgedDetails(node));
             }

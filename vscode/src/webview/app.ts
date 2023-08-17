@@ -142,10 +142,12 @@ class App {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const app = App.create();
+    setTimeout(() => {
+        const app = App.create();
 
-    const handler = (ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void => app.messageHandler(ev, () => window.removeEventListener('message', handler));
-    window.addEventListener('message', handler);
-    document.addEventListener('keydown', (ev) => app.onKeyDown(ev));
-    app.onContentLoaded();
+        const handler = (ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void => app.messageHandler(ev, () => window.removeEventListener('message', handler));
+        window.addEventListener('message', handler);
+        document.addEventListener('keydown', (ev) => app.onKeyDown(ev));
+        app.onContentLoaded();
+    }, 0);
 });

@@ -58,8 +58,23 @@ const webviewOptions = {
   ...sharedWebviewOptions,
 };
 
+/** @type BuildOptions  */
+const styleOptions = {
+  entryPoints: ["src/webview/app.css"],
+  outfile: "dist/webview/webview.css",
+  loader: {
+    ".ttf": "dataurl",
+  },
+  bundle: true,
+};
+
 function createContexts() {
-  return Promise.all([esbuild.context(webOptions), esbuild.context(desktopOptions), esbuild.context(webviewOptions)]);
+  return Promise.all([
+    esbuild.context(webOptions),
+    esbuild.context(desktopOptions),
+    esbuild.context(webviewOptions),
+    esbuild.context(styleOptions),
+  ]);
 }
 
 createContexts()

@@ -70,6 +70,8 @@ export class MSBuildLogViewer implements DisposableLike {
         const vscodeCssContent = await this.assetContent('vscode.css');
         const logviewerCssContent = await this.assetContent('logviewer.css');
         const scriptContent = await this.assetContent('webview.js', { kind: 'dist/webview' });
+        // we embedded codicon in here
+        const webviewCssContent = await this.assetContent('webview.css', { kind: 'dist/webview' });
         const nonce = getNonce();
         const html = /* html */ `
         <!DOCTYPE html>
@@ -81,13 +83,14 @@ export class MSBuildLogViewer implements DisposableLike {
             Use a content security policy to only allow loading images from https or from our extension directory,
             and only allow scripts that have a specific nonce.
             -->
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} blob:; style-src 'nonce-${nonce}' ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src data:; img-src ${webview.cspSource} blob:; style-src 'nonce-${nonce}' ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
 
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
             <style nonce="${nonce}">${resetCssContent}</style>
             <style nonce="${nonce}">${vscodeCssContent}</style>
             <style nonce="${nonce}">${logviewerCssContent}</style>
+            <style nonce="${nonce}">${webviewCssContent}</style>
 
             <title>MSBuild Log Viewer</title>
         </head>
