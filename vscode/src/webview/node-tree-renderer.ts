@@ -6,6 +6,15 @@ import { NodeRequester, requestFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
+import { CodiconIconKind, getIconElement } from "./icon";
+
+function nodeKindToCodicon(nodeKind: string): CodiconIconKind | null {
+    switch (nodeKind) {
+        case "Folder": return CodiconIconKind.Folder;
+        default: return null;
+    }
+}
+
 class HoverButtons {
     private lastHoveredSummary: HTMLParagraphElement | null = null;
 
@@ -145,7 +154,16 @@ export class NodeTreeRenderer {
             nodeSummary.dataset.nodeId = `${node.nodeId}`;
             const isHighlighted = this.highlightedNode === node.nodeId ? ' highlighted' : '';
             nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}${isHighlighted}`);
-            nodeSummary.innerHTML = `<span class='nodeKind'>${node.nodeKind}</span>${node.summary}`;
+            const icon = nodeKindToCodicon(node.nodeKind);
+            if (icon) {
+                nodeSummary.appendChild(getIconElement(icon, 'nodeKind'));
+            } else {
+                const nodeKindSpan = document.createElement('span');
+                nodeKindSpan.setAttribute('class', 'nodeKind');
+                nodeKindSpan.appendChild(document.createTextNode(node.nodeKind));
+                nodeSummary.appendChild(nodeKindSpan);
+            }
+            nodeSummary.appendChild(document.createTextNode(node.summary));
 
             if (this.features?.bookmarks && node.bookmarked) {
                 this.addBookmarkWidget(nodeSummary, node);

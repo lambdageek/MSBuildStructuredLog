@@ -124,6 +124,14 @@ span.nodeKind {
     border: 2px dotted;
 }
 
+.codicon.nodeKind {
+    font-size: inherit;
+    font-style: inherit;
+    border: none;
+    padding-right: 0.5em;
+}
+
+
 details>summary p {
     display: inline;
 }
@@ -166,14 +174,14 @@ p.node-kind-Build::before {
     border: none;
 }
 
-p.node-kind-Folder span.nodeKind {
+/* p.node-kind-Folder span.nodeKind {
     display: none;
 }
 
 p.node-kind-Folder::before {
     content: '📂 ';
     border: none;
-}
+} */
 
 p.node-kind-Property span.nodeKind {
     display: none;
