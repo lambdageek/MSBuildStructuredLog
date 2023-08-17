@@ -2,7 +2,7 @@
 	"name": "msbuild-structured-log-viewer",
 	"private": "true",
 	"publisher": "lambdageek",
-  "version": "0.0.3",
+	"version": "0.0.3",
 	"displayName": "Experimental: MS Build Structured Log Viewer",
 	"description": "Experimental: MS Build Structured Log Viewer",
 	"categories": [
@@ -31,6 +31,10 @@
 	"activationEvents": [],
 	"extensionDependencies": [
 		"ms-vscode.wasm-wasi-core"
+	],
+	"extensionKind": [
+		"workspace",
+		"ui"
 	],
 	"contributes": {
 		"customEditors": [
@@ -116,7 +120,7 @@
 		]
 	},
 	"scripts": {
-    "clean": "npx shx rm -rf dist out packages ../bin/StructuredLogViewer.Vscode.Engine ../obj/StructuredLogViewer.Vscode.Engine",
+		"clean": "npx shx rm -rf dist out packages ../bin/StructuredLogViewer.Vscode.Engine ../obj/StructuredLogViewer.Vscode.Engine",
 		"compile:ts": "tsc -b tsconfig.json",
 		"build": "npm run build:dotnet && npm run build:dotnet-desktop && npm run build:js",
 		"build:js": "npm run compile:ts && npm run build:esbuild",
@@ -124,10 +128,10 @@
 		"build:dotnet-desktop": "npx shx mkdir -p ./dist/desktop/engine && dotnet publish -c Release --no-self-contained -o $PWD/dist/desktop/engine ../src/StructuredLogViewer.Vscode.Engine/StructuredLogViewer.Vscode.Engine.csproj -bl",
 		"build:esbuild": "node ./script/esbuild.js",
 		"test-browser": "vscode-test-web --coi --extensionId ms-vscode.wasm-wasi-core@prerelease --extensionDevelopmentPath=. .",
-    "package": "node ./script/stage-packages.js . packages && npm run package:staged-desktop && npm run package:staged-web",
-    "package:staged-desktop": "cd packages/desktop && vsce package --pre-release --no-dependencies --baseImagesUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -o ..",
-    "package:staged-web": "cd packages/web && vsce package --pre-release --no-dependencies --baseImagesUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -t web -o ..",
-    "gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
+		"package": "node ./script/stage-packages.js . packages && npm run package:staged-desktop && npm run package:staged-web",
+		"package:staged-desktop": "cd packages/desktop && vsce package --pre-release --no-dependencies --baseImagesUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -o ..",
+		"package:staged-web": "cd packages/web && vsce package --pre-release --no-dependencies --baseImagesUrl https://github.com/lambdageek/MSBuildStructuredLog/raw/wasi-single-thread/vscode -t web -o ..",
+		"gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
 		"@streamparser/json": "^0.0.16",
