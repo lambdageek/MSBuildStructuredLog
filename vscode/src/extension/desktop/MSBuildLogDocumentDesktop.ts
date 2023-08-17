@@ -30,7 +30,7 @@ export class ChildProcessEngine implements DisposableLike {
         this.disposables = [];
         this.disposables.push(this.stateChangeEmitter = new vscode.EventEmitter<SubprocessStateChangeEvent>());
         childProcess.on('exit', (code, signal) => {
-            this.logOutput?.appendLine(`wasm process exited with code ${code} and signal ${signal}`);
+            this.logOutput?.appendLine(`engine process exited with code ${code} and signal ${signal}`);
             if (code === 0) {
                 this._state = SubprocessState.EXIT_SUCCESS;
             } else {
