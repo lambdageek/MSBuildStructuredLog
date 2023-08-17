@@ -2,7 +2,7 @@
 	"name": "msbuild-structured-log-viewer",
 	"private": "true",
 	"publisher": "lambdageek",
-  "version": "0.0.4",
+	"version": "0.0.4",
 	"displayName": "Experimental: MS Build Structured Log Viewer",
 	"description": "Experimental: MS Build Structured Log Viewer",
 	"categories": [
@@ -135,6 +135,7 @@
 	},
 	"dependencies": {
 		"@streamparser/json": "^0.0.16",
+		"@vscode/codicons": "^0.0.33",
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
 	},
 	"devDependencies": {
