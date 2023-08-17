@@ -131,16 +131,16 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
     abstract subprocessChangedApplicationState(newState: SubprocessState): void;
 
     gotStdOut(v: unknown) {
-        this.out.info(`received from wasm process: ${v}`);
+        this.out.info(`received from engine process: ${v}`);
         if (isDotnetToCodeMessage(v)) {
             const value = v as DotnetToCodeReply | DotnetToCodeEvent;
             switch (value.type) {
                 case 'ready':
-                    this.out.info(`wasm process signalled Ready`);
+                    this.out.info(`engine process signalled Ready`);
                     this.subprocessChangedApplicationState(SubprocessState.READY);
                     break;
                 case 'done':
-                    this.out.info(`wasm process signalled Done`);
+                    this.out.info(`engine process signalled Done`);
                     this.subprocessChangedApplicationState(SubprocessState.SHUTTING_DOWN);
                     break;
                 case 'node':
@@ -161,7 +161,7 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
                     break;
                 default:
                     assertNever(value);
-                    this.out.warn(`received unknown message from wasm: ${(<any>value).type}`);
+                    this.out.warn(`received unknown message from engine: ${(<any>value).type}`);
                     break;
             }
         }
