@@ -18,6 +18,15 @@
 
 - [ ] Don't attach click handlers to every summary
 
+### Rework detailed node view
+
+- [ ] Instead of opening a fake "frame" in the webview, pop out a virtual document in VS Code.
+   Maybe set some threshold for how long the string is.
+
+### Open source documents
+
+- [ ] the .binlog either stores the document or it has the path. Add a gesture to open one or both
+
 ## Explorer
 
 - [ ] Rename the Search overview to "Log Explorer" or something like that
