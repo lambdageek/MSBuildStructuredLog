@@ -131,6 +131,19 @@ span.nodeKind {
     padding-right: 0.5em;
 }
 
+details>summary {
+    list-style-type: none;
+}
+
+details>summary::before {
+    font-family: codicon;
+    content: "\eab6"
+}
+
+details[open]>summary::before {
+    font-family: codicon;
+    content: "\eab4"
+}
 
 details>summary p {
     display: inline;
@@ -163,85 +176,4 @@ li.search-result {
 
 li.search-result:hover {
     background-color: var(--vscode-list-hoverBackground);
-}
-
-p.node-kind-Build span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Build::before {
-    content: '⚙️ ';
-    border: none;
-}
-
-/* p.node-kind-Folder span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Folder::before {
-    content: '📂 ';
-    border: none;
-} */
-
-p.node-kind-Property span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Property::before {
-    content: '🏷️ ';
-    border: none;
-}
-
-p.node-kind-Project span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Project::before {
-    content: '🧰 ';
-    border: none;
-}
-
-p.node-kind-Target span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Target::before {
-    content: '🎯 ';
-    border: none;
-}
-
-p.node-kind-Task span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Task::before {
-    content: '📋 ';
-    border: none;
-}
-
-p.node-kind-Message span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Message::before {
-    content: '📣 ';
-    border: none;
-}
-
-p.node-kind-TimedNode span.nodeKind {
-    display: none;
-}
-
-p.node-kind-TimedNode::before {
-    content: '⏳ ';
-    border: none;
-}
-
-p.node-kind-Item span.nodeKind {
-    display: none;
-}
-
-p.node-kind-Item::before {
-    content: '📄 ';
-    border: none;
 }

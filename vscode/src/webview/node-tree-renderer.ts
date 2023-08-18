@@ -8,11 +8,32 @@ import { SideViewController } from "./side-view";
 
 import { CodiconIconKind, getIconElement } from "./icon";
 
+const nodeIcon: { [key: string]: CodiconIconKind } = {
+    "AddItem": CodiconIconKind.GitPullRequestCreate,
+    "Build": CodiconIconKind.Wrench,
+    "CscTask": CodiconIconKind.SymbolClass,
+    "CopyTask": CodiconIconKind.Files,
+    "EntryTarget": CodiconIconKind.PlayCircle,
+    "Error": CodiconIconKind.Warning,
+    "Folder": CodiconIconKind.Folder,
+    "Import": CodiconIconKind.DiffAdded,
+    "Item": CodiconIconKind.SymbolVariable,
+    "Message": CodiconIconKind.SymbolText,
+    "Metadata": CodiconIconKind.SymbolEnumMember,
+    "NoImport": CodiconIconKind.DiffIgnored,
+    "Note": CodiconIconKind.Note,
+    "Parameter": CodiconIconKind.SymbolField,
+    "Project": CodiconIconKind.Project,
+    "ProjectEvaluation": CodiconIconKind.SymbolRuler,
+    "Property": CodiconIconKind.Tag,
+    "RemoveItem": CodiconIconKind.GitPullRequestClosed,
+    "Target": CodiconIconKind.Target,
+    "Task": CodiconIconKind.Tasklist,
+    "TimedNode": CodiconIconKind.Watch,
+};
+
 function nodeKindToCodicon(nodeKind: string): CodiconIconKind | null {
-    switch (nodeKind) {
-        case "Folder": return CodiconIconKind.Folder;
-        default: return null;
-    }
+    return nodeIcon[nodeKind] ?? null;
 }
 
 class HoverButtons {
