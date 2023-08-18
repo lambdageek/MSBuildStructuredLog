@@ -35,3 +35,8 @@ export function getIconElement(kind: CodiconIconKind, extraClasses?: string): HT
     span.setAttribute('class', `codicon codicon-${kind} ${extraClasses ? ' ' + extraClasses : ''}`);
     return span;
 }
+
+export function replaceIconElement(element: HTMLElement, oldKind: CodiconIconKind, newKind: CodiconIconKind): void {
+    element.classList.remove(`codicon-${oldKind}`);
+    element.classList.add(`codicon-${newKind}`);
+}

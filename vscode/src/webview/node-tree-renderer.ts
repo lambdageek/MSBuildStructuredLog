@@ -6,7 +6,7 @@ import { NodeRequester, requestFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
-import { CodiconIconKind, getIconElement } from "./icon";
+import { CodiconIconKind, getIconElement, replaceIconElement } from "./icon";
 
 const nodeIcon: { [key: string]: CodiconIconKind } = {
     "AddItem": CodiconIconKind.GitPullRequestCreate,
@@ -240,23 +240,19 @@ export class NodeTreeRenderer {
         }
     }
 
-    setBookmarkWidgetContent(widget: HTMLSpanElement, bookmarked: boolean) {
-        const text = bookmarked ? '🔖' : '📍';
-        widget.replaceChildren(document.createTextNode(text));
-    }
-
     addBookmarkWidget(target: HTMLParagraphElement, node: Node) {
-        const bookmarkWidget = document.createElement('span');
-        bookmarkWidget.classList.add('bookmark-widget');
+        const pin = node.bookmarked ? CodiconIconKind.Pinned : CodiconIconKind.Pin;
+        const bookmarkWidget = getIconElement(pin, 'bookmark-widget');
         if (node.bookmarked) {
             bookmarkWidget.classList.add('bookmarked');
         }
-        this.setBookmarkWidgetContent(bookmarkWidget, node.bookmarked ?? false);
         bookmarkWidget.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
+            const oldKind = node.bookmarked ? CodiconIconKind.Pinned : CodiconIconKind.Pin;
+            const newKind = node.bookmarked ? CodiconIconKind.Pin : CodiconIconKind.Pinned;
+            replaceIconElement(bookmarkWidget, oldKind, newKind);
             this.toggleBookmark(node);
-            this.setBookmarkWidgetContent(bookmarkWidget, node.bookmarked ?? false);
         });
         target.appendChild(bookmarkWidget);
     }
