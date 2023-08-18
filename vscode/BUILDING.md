@@ -22,3 +22,35 @@
    This will download `vscode-test-web` and open a new Chromium instance with a local copy of VS Code for Web with the extension already loaded.  By default the `test-browser` script opens the current directory as a workspace.  Click on `vscode/example/example.binlog`.
    In the `MSBuild Log View` output window you should see a message near the top that it is using the "WASI engine"
 5. To test on <https://insiders.vscode.dev>, follow the instructions [Test your web extension on vscode.dev](https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-vscode.dev) to set up a certificates.  Then run `npm run test-web` (you may need to adjust the paths to the certificates) and go to <https://insiders.vscode.dev/> and open this GitHub repo (or another workspace with .binlog files) and then open the Command Palette and run the command `Developer: Install Extension from Location...` and paste in the URL from the `npm run test-web` output.
+
+## Testing the Desktop version
+
+### Prerequisites
+
+The prerequisites are the same as the WASI version. (Technically you don't need to build the .NET 8 WASI version of the engine, but right now the build script builds both)
+
+### Building and testing
+
+Create the following `.vscode/launch.json` in the root of this repo:
+
+```json
+{
+  "configurations": [
+  {
+    "args": [
+      "--extensionDevelopmentPath=${workspaceFolder}/vscode"
+    ],
+    "name": "Launch Extension (Desktop)",
+    "outFiles": [
+      "${workspaceFolder}/vscode/dist/**/*.js"
+    ],
+    "request": "launch",
+    "type": "extensionHost"
+  }
+  ]
+}
+```
+
+Build the extension `cd vscode && npm install && npm run build`
+
+In a running VS Code instance, hit `F5` or switch to the debugger view and click "Launch Extension (Desktop)".  A new VS Code window should open with the extension loaded.  After you open a `.binlog`, the "MSBuild Log View" window should say that it is running the engine using a .NET 7 runtime.
