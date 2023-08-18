@@ -4,8 +4,8 @@
 
 ### Use codicons instead of emoji
 
-- [ ] Use codicons for drawing UI
-- [ ] Figure out why there are CSP problems with fetching resources from the extension in VS Code for the Web.
+- [x] Use codicons for drawing UI
+- [x] ~~Figure out why there are CSP problems with fetching resources from the extension in VS Code for the Web.~~
    (Alternately, inline codicons in a `data:` uri)
 
 ### Stateless webview
