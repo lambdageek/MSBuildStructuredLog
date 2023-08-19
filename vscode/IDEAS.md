@@ -20,7 +20,7 @@
 
 ### Rework detailed node view
 
-- [ ] Instead of opening a fake "frame" in the webview, pop out a virtual document in VS Code.
+- [x] Instead of opening a fake "frame" in the webview, pop out a virtual document in VS Code.
    Maybe set some threshold for how long the string is.
 
 ### Open source documents
