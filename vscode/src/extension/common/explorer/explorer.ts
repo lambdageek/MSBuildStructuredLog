@@ -27,6 +27,7 @@ class ExplorerViewController implements DisposableLike {
         this.subscriptions.push(overviewTreeView);
         this.subscriptions.push(searchResultsTreeDataProvider);
         this.subscriptions.push(searchResultsTreeView);
+        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-document-in-overview', this.revealDocumentInOverview.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', this.runSearch.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.clear-search', this.clearSearch.bind(this)));
         this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', this.revealSearchResults.bind(this)));
@@ -38,6 +39,10 @@ class ExplorerViewController implements DisposableLike {
     dispose() {
         this.subscriptions.forEach(d => d.dispose());
         this.subscriptions.length = 0;
+    }
+
+    async revealDocumentInOverview(controller: DocumentController) {
+        await this.overviewTreeView.reveal({ type: "document", controller: controller });
     }
 
     async revealSearchInOverview(controller: SearchResultController) {
@@ -59,7 +64,6 @@ class ExplorerViewController implements DisposableLike {
     async runSearch(controller: DocumentController, query: string): Promise<void> {
         const search = controller.newSearch(query);
         const uri = controller.document.uri;
-        vscode.window.showInformationMessage(`Searching for ${query} in ${uri.toString()}`);
         const disposable = search.onDidSearch(async () => {
             this.subscriptions.splice(this.subscriptions.indexOf(disposable), 1);
             await this.revealSearchInOverview(search);
@@ -331,6 +335,8 @@ async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<
     });
     if (input === undefined)
         return;
+    // not needed, run-search will reveal the search results
+    //vscode.commands.executeCommand('msbuild-structured-log-viewer.reveal-document-in-overview', controller);
     vscode.commands.executeCommand('msbuild-structured-log-viewer.run-search', controller, input);
 }
 
