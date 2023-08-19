@@ -64,7 +64,6 @@ class ExplorerViewController implements DisposableLike {
 
     async runSearch(controller: DocumentController, query: string): Promise<void> {
         const search = controller.newSearch(query);
-        const uri = controller.document.uri;
         const disposable = search.onDidSearch(async () => {
             this.subscriptions.splice(this.subscriptions.indexOf(disposable), 1);
             await this.revealSearchInOverview(search);
