@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { DocumentController, EditorController } from '../controller';
 
+import * as constants from '../constants';
+
 export interface ControllerGroup {
     documentController: DocumentController;
     editorController: EditorController;
@@ -52,21 +54,21 @@ class ActiveViewsImpl {
         const webviewPanel = controller.editorController.viewer.webviewPanel;
         this._activeController = controller;
         if (webviewPanel.active)
-            vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', true);
+            vscode.commands.executeCommand('setContext', constants.context.hasFocus, true);
         this._allControllers.push(controller);
         webviewPanel.onDidChangeViewState((e) => {
             if (e.webviewPanel.active) {
-                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', true);
+                vscode.commands.executeCommand('setContext', constants.context.hasFocus, true);
                 this._activeController = controller;
             } else if (this.activeWebviewPanel === e.webviewPanel) {
                 this._activeController = undefined;
-                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', false);
+                vscode.commands.executeCommand('setContext', constants.context.hasFocus, false);
             }
         });
         webviewPanel.onDidDispose(() => {
             if (this.activeWebviewPanel === webviewPanel) {
                 this._activeController = undefined;
-                vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasFocus', false);
+                vscode.commands.executeCommand('setContext', constants.context.hasFocus, false);
             }
             this._allControllers.splice(this._allControllers.indexOf(controller), 1);
             this._onViewerDisposed.fire(controller);

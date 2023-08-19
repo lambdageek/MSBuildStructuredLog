@@ -16,6 +16,8 @@ import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, Webvi
 
 import { CodeToWebviewEvent, CodeToWebviewReply } from "../../../shared/code-to-webview";
 
+import * as constants from "../constants";
+
 function getNonce() {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -53,7 +55,7 @@ export class MSBuildLogViewer implements DisposableLike {
     async prepare(uri: Uri, onContentLoaded: (e: WebviewToCodeContentLoaded, documentReady: () => void) => void): Promise<void> {
         this.webviewPanel.webview.options = {
             enableScripts: true,
-            enableCommandUris: ['msbuild-structured-log-viewer.start-search']
+            enableCommandUris: [constants.command.startSearch]
         };
         const fsPath = uri.fsPath;
         const subscription = this.webviewPanel.webview.onDidReceiveMessage((e: WebviewToCodeContentLoaded) => {

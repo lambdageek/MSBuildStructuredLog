@@ -6,6 +6,8 @@ import { MSBuildLogViewer } from './viewer';
 import { EditorController, DocumentController } from '../controller';
 import { activeLogViewers } from './active-views';
 
+import * as constants from '../constants';
+
 class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBuildLogDocument> {
 
     public static async register(context: vscode.ExtensionContext, documentFactory: MSBuildLogDocumentFactory): Promise<vscode.Disposable> {
@@ -16,7 +18,7 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
             out.info(`node version ${process.version}`);
         }
 
-        return vscode.window.registerCustomEditorProvider(EditorProvider.viewType,
+        return vscode.window.registerCustomEditorProvider(constants.viewType.editor,
             new EditorProvider(context, documentFactory, out),
             {
                 webviewOptions: {
@@ -26,8 +28,6 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
             }
         );
     }
-
-    public static readonly viewType = 'msbuild-structured-log.base';
 
     constructor(private readonly context: vscode.ExtensionContext, private readonly documentFactory: MSBuildLogDocumentFactory, readonly out: vscode.LogOutputChannel) { }
 
@@ -49,10 +49,10 @@ class EditorProvider implements vscode.CustomReadonlyEditorProvider<AbstractMSBu
 
 export async function activateEditorProvider(context: vscode.ExtensionContext, documentFactory: MSBuildLogDocumentFactory): Promise<vscode.Disposable> {
     context.subscriptions.push(activeLogViewers.onFirstViewerOpened((_controller) => {
-        vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer-isOpen', true);
+        vscode.commands.executeCommand('setContext', constants.context.isOpen, true);
     }));
     context.subscriptions.push(activeLogViewers.onLastViewerClosed((_controller) => {
-        vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer-isOpen', false);
+        vscode.commands.executeCommand('setContext', constants.context.isOpen, false);
     }));
     return await EditorProvider.register(context, documentFactory);
 }

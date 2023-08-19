@@ -6,6 +6,8 @@ import { DisposableLike } from "../../../shared/disposable";
 
 import { SearchResultController } from "../controller";
 
+import * as constants from "../constants";
+
 export class SearchResultTreeItem extends vscode.TreeItem {
     private static defaultIcon = new vscode.ThemeIcon("inspect");
     constructor(unexplored: SearchResult, readonly node: Node, readonly controller: SearchResultController) {
@@ -14,7 +16,7 @@ export class SearchResultTreeItem extends vscode.TreeItem {
         this.iconPath = SearchResultTreeItem.defaultIcon;
         this.command = {
             title: "Reveal node",
-            command: "msbuild-structured-log-viewer.reveal-node",
+            command: constants.command.revealNode,
             arguments: [this.controller, unexplored],
         };
     }
@@ -41,7 +43,7 @@ export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<Se
     }
 
     set controller(value: SearchResultController | null) {
-        vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasOverflowSearchResults', !!value);
+        vscode.commands.executeCommand('setContext', constants.context.hasOverflowSearchResults, !!value);
         this._controller = value;
         this.controller?.onDidDispose(() => {
             // if the controller is disposed and we're currently showing it, clear the tree

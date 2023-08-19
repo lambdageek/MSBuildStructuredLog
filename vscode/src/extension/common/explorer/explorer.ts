@@ -9,6 +9,7 @@ import { DisposableLike } from '../../../shared/disposable';
 import { SearchResultsTreeDataProvider, getSearchResultTreeItem } from './search-results';
 import { assertNever } from '../../../shared/assert-never';
 
+import * as constants from '../constants';
 
 const INLINE_SEARCH_RESULTS_MAX = 10;
 
@@ -27,11 +28,11 @@ class ExplorerViewController implements DisposableLike {
         this.subscriptions.push(overviewTreeView);
         this.subscriptions.push(searchResultsTreeDataProvider);
         this.subscriptions.push(searchResultsTreeView);
-        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-document-in-overview', this.revealDocumentInOverview.bind(this)));
-        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.run-search', this.runSearch.bind(this)));
-        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.clear-search', this.clearSearch.bind(this)));
-        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-search-results', this.revealSearchResults.bind(this)));
-        this.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.reveal-node', this.revealSearchResultInEditor.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand(constants.command.revealDocumentInOverview, this.revealDocumentInOverview.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand(constants.command.runSearch, this.runSearch.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand(constants.command.clearSearch, this.clearSearch.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand(constants.command.revealSearchResults, this.revealSearchResults.bind(this)));
+        this.subscriptions.push(vscode.commands.registerCommand(constants.command.revealNode, this.revealSearchResultInEditor.bind(this)));
 
         this.subscriptions.push(activeLogViewers.onViewerDisposed(this.unsetSearchResultsControllerWhenEditorClosed.bind(this)));
     }
@@ -286,7 +287,7 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 item.iconPath = new vscode.ThemeIcon("search");
                 item.command = {
                     title: "Reveal search results",
-                    command: "msbuild-structured-log-viewer.reveal-search-results",
+                    command: constants.command.revealSearchResults,
                     arguments: [element.controller, this.searchResultsTreeDataProvider],
                 };
                 item.contextValue = "search";
@@ -306,8 +307,8 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
 async function registerSideView(): Promise<ExplorerViewController> {
     const searchResultsTreeDataProvider = new SearchResultsTreeDataProvider();
     const overviewTreeDataProvider = new ExplorerTreeDataProvider(searchResultsTreeDataProvider);
-    const overviewTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.explorer", { treeDataProvider: overviewTreeDataProvider });
-    const searchResultsTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.search-results", { treeDataProvider: searchResultsTreeDataProvider });
+    const overviewTreeView = vscode.window.createTreeView(constants.view.explorer, { treeDataProvider: overviewTreeDataProvider });
+    const searchResultsTreeView = vscode.window.createTreeView(constants.view.searchResults, { treeDataProvider: searchResultsTreeDataProvider });
     const controller = new ExplorerViewController(overviewTreeDataProvider, searchResultsTreeDataProvider, overviewTreeView, searchResultsTreeView);
     return controller;
 }
@@ -336,11 +337,11 @@ async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<
     if (input === undefined)
         return;
     // not needed, run-search will reveal the search results
-    //vscode.commands.executeCommand('msbuild-structured-log-viewer.reveal-document-in-overview', controller);
-    vscode.commands.executeCommand('msbuild-structured-log-viewer.run-search', controller, input);
+    //vscode.commands.executeCommand(constants.command.revealDocumentInOverview, controller);
+    vscode.commands.executeCommand(constants.command.runSearch, controller, input);
 }
 
 export async function activateExplorer(context: vscode.ExtensionContext) {
     context.subscriptions.push(await registerSideView());
-    context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.start-search', startNewSearch));
+    context.subscriptions.push(vscode.commands.registerCommand(constants.command.startSearch, startNewSearch));
 }
