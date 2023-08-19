@@ -20,12 +20,20 @@ import { SubprocessState } from "./subprocess/subprocess-state";
 
 import { MSBuildLogViewer } from "./editor/viewer";
 
+enum SearchState {
+    Idle,
+    Searching,
+    Done,
+}
+
 export class SearchResultController implements DisposableLike {
     readonly disposables: DisposableLike[] = [];
     readonly _results: SearchResult[] = [];
-    private _didRun = false;
+    private _state: SearchState = SearchState.Idle;
 
     private readonly _onDidDispose = new EventEmitter<void>();
+    private readonly _onWillSearch = new EventEmitter<void>();
+    private readonly _onDidSearch = new EventEmitter<void>();
 
     constructor(readonly controller: DocumentController, readonly query: string) {
     }
@@ -41,12 +49,24 @@ export class SearchResultController implements DisposableLike {
         return this._onDidDispose.event;
     }
 
+    get onWillSearch() {
+        return this._onWillSearch.event;
+    }
+
+    get onDidSearch() {
+        return this._onDidSearch.event;
+    }
+
     get results(): SearchResult[] {
         return this._results;
     }
 
+    get searchRunning(): boolean {
+        return this._state == SearchState.Searching;
+    }
+
     get hasResults(): boolean {
-        return this._didRun;
+        return this._state == SearchState.Done;
     }
 
     get resultsLength(): number {
@@ -54,10 +74,16 @@ export class SearchResultController implements DisposableLike {
     }
 
     async run(): Promise<void> {
+        if (this._state !== SearchState.Idle) {
+            throw new Error('search has already been done');
+        }
+        this._state = SearchState.Searching;
+        this._onWillSearch.fire();
         const results = await this.controller.document.requestSearch(this.query);
-        this._didRun = true;
+        this._state = SearchState.Done;
         this._results.length = 0;
         this._results.push(...results.results);
+        this._onDidSearch.fire();
     }
 
     reveal(result: SearchResult): void {
@@ -71,6 +97,8 @@ export class DocumentController implements DisposableLike {
     readonly _searches: SearchResultController[] = []
     readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchRemoved: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
+    readonly _onSearchStarted: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
+    readonly _onSearchFinished: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchResultRevealed: EventEmitter<SearchResult> = new EventEmitter<SearchResult>();
     constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly out?: LogOutputChannel) {
 
@@ -84,6 +112,8 @@ export class DocumentController implements DisposableLike {
         this.subscriptions.push(search.onDidDispose(this.removeSearch.bind(this, search, true)));
         this._searches.push(search);
         this._onSearchAdded.fire(search);
+        this.subscriptions.push(search.onWillSearch(() => this._onSearchStarted.fire(search)));
+        this.subscriptions.push(search.onDidSearch(() => this._onSearchFinished.fire(search)));
         return search;
     }
 
@@ -105,6 +135,14 @@ export class DocumentController implements DisposableLike {
 
     get onSearchRemoved() {
         return this._onSearchRemoved.event;
+    }
+
+    get onSearchStarted() {
+        return this._onSearchStarted.event;
+    }
+
+    get onSearchFinished() {
+        return this._onSearchFinished.event;
     }
 
     get onSearchResultRevealed() {

@@ -60,10 +60,15 @@ class ExplorerViewController implements DisposableLike {
         const search = controller.newSearch(query);
         const uri = controller.document.uri;
         vscode.window.showInformationMessage(`Searching for ${query} in ${uri.toString()}`);
-        await search.run();
-        await this.revealSearchInOverview(search);
-        await this.revealSearchResults(search, this.searchResultsTreeDataProvider);
-        //vscode.window.showInformationMessage(`Found ${search.results.length} results for ${query} in ${uri.toString()}`);
+        const disposable = search.onDidSearch(async () => {
+            this.subscriptions.splice(this.subscriptions.indexOf(disposable), 1);
+            await this.revealSearchInOverview(search);
+            await this.revealSearchResults(search, this.searchResultsTreeDataProvider);
+        })
+        this.subscriptions.push(disposable);
+        const runPromise = search.run();
+        this.revealSearchInOverview(search);
+        await runPromise;
     }
 
     async clearSearch(item: OverviewItemSearch) {
@@ -117,6 +122,12 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
             controller.documentController.onSearchRemoved(() => {
+                this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
+            });
+            controller.documentController.onSearchStarted((_search) => {
+                this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
+            });
+            controller.documentController.onSearchFinished((_search) => {
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
         }));
@@ -263,7 +274,9 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 const hasInlinedResults = inlineSearchResults(element.controller);
                 const collapseState = hasInlinedResults ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
                 const item = new vscode.TreeItem(element.controller.query, collapseState);
-                if (element.controller.hasResults) {
+                if (element.controller.searchRunning) {
+                    item.description = "Searching...";
+                } else if (element.controller.hasResults) {
                     item.description = `Found ${element.controller.resultsLength} results`;
                 }
                 item.iconPath = new vscode.ThemeIcon("search");
