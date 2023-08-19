@@ -30,3 +30,7 @@ export namespace view {
 export namespace viewType {
     export const editor = `${extension.name}.binlog`;
 }
+
+export namespace uri {
+    export const snippetScheme = `${extension.name}-snippet`;
+}

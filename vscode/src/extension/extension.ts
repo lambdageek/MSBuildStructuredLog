@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import { activateEditorProvider } from "./common/editor";
 import { activateExplorer } from './common/explorer';
+import { activateTextDocumentContentProvider } from './common/text-document-content-provider';
 import { openMSBuildLogDocumentWasi } from './web/MSBuildLogDocumentWasi';
 import { openMSBuildLogDocumentDesktopFactory } from './desktop/MSBuildLogDocumentDesktop';
 
@@ -17,6 +18,7 @@ async function acquireDotNetRuntime(): Promise<string> {
 }
 
 export async function activate(context: ExtensionContext) {
+    await activateTextDocumentContentProvider(context);
     await activateExplorer(context);
     if (!isWeb()) {
         // await vscode.commands.executeCommand('dotnet.showAcquisitionLog');

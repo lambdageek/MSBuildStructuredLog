@@ -2,7 +2,7 @@
 import { NodeId, Node, FullyExploredNode, SearchResult } from "../shared/model";
 
 import { NodeMapper } from "./node-mapper";
-import { NodeRequester, requestFullText } from "./post-to-vs";
+import { NodeRequester, requestRevealNodeFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
@@ -212,9 +212,10 @@ export class NodeTreeRenderer {
     }
 
     async onClickAbridgedDetails(node: Node): Promise<void> {
-        const text = await requestFullText(node.nodeId); // FIXME: cache replies
-        this.sideViewController.toggleSideview(node.nodeId);
-        await this.sideViewController.setContent(node.nodeId, text);
+        await requestRevealNodeFullText(node.nodeId);
+        //const text = await requestFullText(node.nodeId); // FIXME: cache replies
+        // this.sideViewController.toggleSideview(node.nodeId);
+        //await this.sideViewController.setContent(node.nodeId, text);
     }
 
     private async ensureExplored(nodeIds: NodeId[]): Promise<void> {

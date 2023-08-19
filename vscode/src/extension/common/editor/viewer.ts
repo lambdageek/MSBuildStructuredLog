@@ -12,7 +12,7 @@ import { DisposableLike } from "../../../shared/disposable";
 
 import { assertNever } from "../../../shared/assert-never";
 
-import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, WebviewToCodeContentLoaded } from "../../../shared/webview-to-code";
+import { WebviewToCodeRequest, WebviewToCodeReply, isWebviewToCodeMessage, WebviewToCodeContentLoaded, WebviewToCodeCommand } from "../../../shared/webview-to-code";
 
 import { CodeToWebviewEvent, CodeToWebviewReply } from "../../../shared/code-to-webview";
 
@@ -32,18 +32,18 @@ export class MSBuildLogViewer implements DisposableLike {
     constructor(readonly context: ExtensionContext, readonly webviewPanel: WebviewPanel, readonly out?: LogOutputChannel) {
         this.disposables = [];
         this.disposables.push(this._onWebviewReply = new EventEmitter<WebviewToCodeReply>());
-        this.disposables.push(this._onWebviewRequest = new EventEmitter<WebviewToCodeRequest>());
+        this.disposables.push(this._onWebviewRequest = new EventEmitter<WebviewToCodeRequest | WebviewToCodeCommand>());
     }
 
     private readonly _onWebviewReply: EventEmitter<WebviewToCodeReply>;
 
-    private readonly _onWebviewRequest: EventEmitter<WebviewToCodeRequest>;
+    private readonly _onWebviewRequest: EventEmitter<WebviewToCodeRequest | WebviewToCodeCommand>;
 
     get onWebviewReply(): Event<WebviewToCodeReply> {
         return this._onWebviewReply.event;
     }
 
-    get onWebviewRequest(): Event<WebviewToCodeRequest> {
+    get onWebviewRequest(): Event<WebviewToCodeRequest | WebviewToCodeCommand> {
         return this._onWebviewRequest.event;
     }
 
@@ -118,7 +118,7 @@ export class MSBuildLogViewer implements DisposableLike {
         return decoder.decode(bytes);
     }
 
-    private onMessage(e: WebviewToCodeRequest | WebviewToCodeReply) {
+    private onMessage(e: WebviewToCodeRequest | WebviewToCodeReply | WebviewToCodeCommand) {
         if (isWebviewToCodeMessage(e)) {
             switch (e.type) {
                 case 'ready':
@@ -129,6 +129,9 @@ export class MSBuildLogViewer implements DisposableLike {
                 case 'manyNodes':
                 case 'summarizeNode':
                 case 'nodeFullText':
+                    this._onWebviewRequest.fire(e);
+                    break;
+                case 'nodeFullTextNoReply':
                     this._onWebviewRequest.fire(e);
                     break;
                 default:

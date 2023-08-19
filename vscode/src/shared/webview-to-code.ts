@@ -37,6 +37,11 @@ export interface WebviewToCodeNodeFullTextRequest extends WebviewToCodeRequestBa
     nodeId: NodeId;
 }
 
+export interface WebviewToCodeNodeFullTextCommand {
+    type: 'nodeFullTextNoReply';
+    nodeId: NodeId;
+}
+
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
@@ -54,3 +59,5 @@ export interface WebviewToCodeContentLoaded extends WebviewToCodeMessage {
 }
 
 export type WebviewToCodeReply = WebviewToCodeReplyReady;
+
+export type WebviewToCodeCommand = WebviewToCodeNodeFullTextCommand;

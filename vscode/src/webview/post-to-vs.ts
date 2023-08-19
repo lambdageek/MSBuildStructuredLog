@@ -9,7 +9,7 @@ import { NodeMapper } from './node-mapper';
 
 const vscode = acquireVsCodeApi<void>();
 
-export function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeRequest | req.WebviewToCodeReply) {
+export function postToVs(message: req.WebviewToCodeContentLoaded | req.WebviewToCodeRequest | req.WebviewToCodeReply | req.WebviewToCodeCommand) {
     vscode.postMessage(message);
 }
 
@@ -63,4 +63,8 @@ export async function requestFullText(nodeId: NodeId): Promise<string> {
     postToVs({ type: 'nodeFullText', nodeId, requestId });
     const reply = await promise;
     return reply.fullText;
+}
+
+export async function requestRevealNodeFullText(nodeId: NodeId): Promise<void> {
+    postToVs({ type: 'nodeFullTextNoReply', nodeId });
 }

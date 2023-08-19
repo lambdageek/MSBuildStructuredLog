@@ -10,7 +10,7 @@ import { DisposableLike } from "../../shared/disposable";
 
 import { assertNever } from "../../shared/assert-never";
 
-import { WebviewToCodeRequest, WebviewToCodeReply, WebviewToCodeContentLoaded } from "../../shared/webview-to-code";
+import { WebviewToCodeRequest, WebviewToCodeReply, WebviewToCodeContentLoaded, WebviewToCodeCommand } from "../../shared/webview-to-code";
 
 import { CodeToWebviewReply, CodeToWebviewNodeReply } from "../../shared/code-to-webview";
 
@@ -19,6 +19,8 @@ import { SearchResult } from "../../shared/model";
 import { SubprocessState } from "./subprocess/subprocess-state";
 
 import { MSBuildLogViewer } from "./editor/viewer";
+
+import { revealNodeFullText } from "./text-document-content-provider";
 
 enum SearchState {
     Idle,
@@ -210,7 +212,7 @@ export class EditorController implements DisposableLike {
         }
     }
 
-    async onWebviewRequest(e: WebviewToCodeRequest): Promise<void> {
+    async onWebviewRequest(e: WebviewToCodeRequest | WebviewToCodeCommand): Promise<void> {
         switch (e.type) {
             case 'root': {
                 const requestId = e.requestId;
@@ -273,6 +275,9 @@ export class EditorController implements DisposableLike {
                 this.viewer.postToWebview(reply);
                 break;
             }
+            case 'nodeFullTextNoReply':
+                await revealNodeFullText(this.documentController, e.nodeId);
+                break;
             default:
                 assertNever(e);
         }
