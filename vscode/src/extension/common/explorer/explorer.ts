@@ -9,6 +9,14 @@ import { DisposableLike } from '../../../shared/disposable';
 import { SearchResultsTreeDataProvider, getSearchResultTreeItem } from './search-results';
 import { assertNever } from '../../../shared/assert-never';
 
+
+const INLINE_SEARCH_RESULTS_MAX = 10;
+
+function inlineSearchResults(controller: SearchResultController): boolean {
+    return controller.hasResults && controller.resultsLength <= INLINE_SEARCH_RESULTS_MAX;
+}
+
+
 class ExplorerViewController implements DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
     constructor(readonly overviewTreeDataProvider: ExplorerTreeDataProvider,
@@ -37,7 +45,11 @@ class ExplorerViewController implements DisposableLike {
     }
 
     async revealSearchResults(controller: SearchResultController, treeDataProvider: SearchResultsTreeDataProvider) {
-        treeDataProvider.controller = controller;
+        if (!inlineSearchResults(controller)) {
+            treeDataProvider.controller = controller;
+        } else {
+            treeDataProvider.controller = null;
+        }
     }
 
     async revealSearchResultInEditor(controller: SearchResultController, result: SearchResult) {
@@ -141,9 +153,6 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
         }
     }
 
-    inlineSearchResults(controller: SearchResultController): boolean {
-        return controller.hasResults && controller.resultsLength <= 10;
-    }
 
     getChildren(element?: OverviewItem): vscode.ProviderResult<OverviewItem[]> {
         if (!element) {
@@ -190,7 +199,7 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 }
             }
             case "search": {
-                if (this.inlineSearchResults(element.controller)) {
+                if (inlineSearchResults(element.controller)) {
                     return element.controller.results.map(r => ({ type: "search-result-inline", controller: element.controller, result: r }));
                 } else {
                     return [];
@@ -251,7 +260,8 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
             }
 
             case "search": {
-                const collapseState = this.inlineSearchResults(element.controller) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
+                const hasInlinedResults = inlineSearchResults(element.controller);
+                const collapseState = hasInlinedResults ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
                 const item = new vscode.TreeItem(element.controller.query, collapseState);
                 if (element.controller.hasResults) {
                     item.description = `Found ${element.controller.resultsLength} results`;

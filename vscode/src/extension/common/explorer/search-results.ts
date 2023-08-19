@@ -41,6 +41,7 @@ export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<Se
     }
 
     set controller(value: SearchResultController | null) {
+        vscode.commands.executeCommand('setContext', 'msbuild-structured-log-viewer.hasOverflowSearchResults', !!value);
         this._controller = value;
         this.controller?.onDidDispose(() => {
             // if the controller is disposed and we're currently showing it, clear the tree

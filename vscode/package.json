@@ -60,7 +60,7 @@
 					"id": "msbuild-structured-log-viewer.search-results",
 					"name": "Search Results",
 					"icon": "$(search-view-icon)",
-					"when": "msbuild-structured-log-viewer-isOpen == true"
+          "when": "msbuild-structured-log-viewer-isOpen == true && msbuild-structured-log-viewer.hasOverflowSearchResults == true"
 				}
 			]
 		},
