@@ -51,8 +51,8 @@
 		"views": {
 			"msbuild-structured-log-viewer-search-container": [
 				{
-					"id": "msbuild-structured-log-viewer.overview",
-					"name": "Searches",
+          "id": "msbuild-structured-log-viewer.explorer",
+          "name": "Log Explorer",
 					"icon": "assets/StructuredLogger.png",
 					"when": "msbuild-structured-log-viewer-isOpen == true"
 				},
@@ -77,12 +77,12 @@
 			"view/item/context": [
 				{
 					"command": "msbuild-structured-log-viewer.start-search",
-					"when": "view == msbuild-structured-log-viewer.overview && viewItem == document",
+          "when": "view == msbuild-structured-log-viewer.explorer && viewItem == document",
 					"group": "inline"
 				},
 				{
 					"command": "msbuild-structured-log-viewer.clear-search",
-					"when": "view == msbuild-structured-log-viewer.overview && viewItem == search",
+          "when": "view == msbuild-structured-log-viewer.explorer && viewItem == search",
 					"group": "inline"
 				}
 			],
@@ -107,7 +107,7 @@
 				"command": "msbuild-structured-log-viewer.clear-search",
 				"title": "Clear Search",
 				"icon": "$(clear-all)",
-				"when": "view == msbuild-structured-log-viewer.overview && viewItem == search"
+        "when": "view == msbuild-structured-log-viewer.explorer && viewItem == search"
 			}
 		],
 		"keybindings": [

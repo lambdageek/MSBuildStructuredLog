@@ -91,6 +91,14 @@ export class DocumentController implements DisposableLike {
         return [... this._searches];
     }
 
+    get hasSearches(): boolean {
+        return this._searches.length > 0;
+    }
+
+    get hasBookmarks(): boolean {
+        return false;
+    }
+
     get onSearchAdded() {
         return this._onSearchAdded.event;
     }

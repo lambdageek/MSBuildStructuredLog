@@ -6,7 +6,7 @@ import { DisposableLike } from "../../../shared/disposable";
 
 import { SearchResultController } from "../controller";
 
-class SearchResultTreeItem extends vscode.TreeItem {
+export class SearchResultTreeItem extends vscode.TreeItem {
     private static defaultIcon = new vscode.ThemeIcon("inspect");
     constructor(unexplored: SearchResult, readonly node: Node, readonly controller: SearchResultController) {
         super(node.summary, vscode.TreeItemCollapsibleState.None);
@@ -18,6 +18,12 @@ class SearchResultTreeItem extends vscode.TreeItem {
             arguments: [this.controller, unexplored],
         };
     }
+}
+
+export async function getSearchResultTreeItem(element: SearchResult, controller: SearchResultController): Promise<SearchResultTreeItem> {
+    const node = await controller.controller.document.requestNode(element.nodeId);
+    const item = new SearchResultTreeItem(element, node.node, controller);
+    return item;
 }
 
 export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<SearchResult>, DisposableLike {
@@ -62,11 +68,8 @@ export class SearchResultsTreeDataProvider implements vscode.TreeDataProvider<Se
         return null;
     }
 
-    async getTreeItem(element: SearchResult): Promise<vscode.TreeItem> {
-        const controller = this.controller!;
-        const node = await controller.controller.document.requestNode(element.nodeId);
-        const item = new SearchResultTreeItem(element, node.node, this.controller!);
-        return item;
+    getTreeItem(element: SearchResult): Promise<vscode.TreeItem> {
+        return getSearchResultTreeItem(element, this.controller!);
     }
 }
 

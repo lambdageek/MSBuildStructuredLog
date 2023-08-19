@@ -6,11 +6,12 @@ import { ControllerGroup, activeLogViewers } from '../editor';
 import { DocumentController, SearchResultController } from '../controller';
 import { DisposableLike } from '../../../shared/disposable';
 
-import { SearchResultsTreeDataProvider } from './search-results';
+import { SearchResultsTreeDataProvider, getSearchResultTreeItem } from './search-results';
+import { assertNever } from '../../../shared/assert-never';
 
-class SearchSideViewController implements DisposableLike {
+class ExplorerViewController implements DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
-    constructor(readonly overviewTreeDataProvider: OverviewTreeDataProvider,
+    constructor(readonly overviewTreeDataProvider: ExplorerTreeDataProvider,
         readonly searchResultsTreeDataProvider: SearchResultsTreeDataProvider,
         readonly overviewTreeView: vscode.TreeView<OverviewItem>,
         readonly searchResultsTreeView: vscode.TreeView<SearchResult>) {
@@ -75,14 +76,26 @@ function isOverviewItemDocument(x: unknown): x is OverviewItemDocument {
     return typeof x === "object" && x !== null && "type" in x && x["type"] === "document" && "controller" in x;
 }
 
+interface OverviewItemHeading {
+    type: "heading";
+    controller: DocumentController;
+    heading: "Searches" | "Bookmarks";
+}
+
 interface OverviewItemSearch {
     type: "search";
     controller: SearchResultController;
 }
 
-type OverviewItem = OverviewItemDocument | OverviewItemSearch;
+interface OverviewItemSearchResultInline {
+    type: "search-result-inline";
+    controller: SearchResultController;
+    result: SearchResult;
+}
 
-class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>, DisposableLike {
+type OverviewItem = OverviewItemDocument | OverviewItemSearch | OverviewItemHeading | OverviewItemSearchResultInline;
+
+class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>, DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
     private _onDidChangeTreeData: vscode.EventEmitter<OverviewItem | undefined> = new vscode.EventEmitter<OverviewItem | undefined>();
     constructor(readonly searchResultsTreeDataProvider: SearchResultsTreeDataProvider) {
@@ -107,23 +120,115 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
         return this._onDidChangeTreeData.event;
     }
 
+    getSearchesChildren(controller: DocumentController): OverviewItem[] {
+        return controller.searches.map(s => {
+            return { type: "search", controller: s, query: s.query };
+        });
+    }
+    getBookmarksChildren(_controller: DocumentController): OverviewItem[] {
+        return [];
+    }
+
+    collapseHeading(controller: DocumentController): "collapse-all" | "collapse-search" | "collapse-bookmarks" | false {
+        if (controller.hasSearches && controller.hasBookmarks) {
+            return false;
+        } else if (controller.hasSearches) {
+            return "collapse-search";
+        } else if (controller.hasBookmarks) {
+            return "collapse-bookmarks";
+        } else {
+            return "collapse-all";
+        }
+    }
+
+    inlineSearchResults(controller: SearchResultController): boolean {
+        return controller.hasResults && controller.resultsLength <= 10;
+    }
+
     getChildren(element?: OverviewItem): vscode.ProviderResult<OverviewItem[]> {
         if (!element) {
             return activeLogViewers.allControllers.map(d => ({ type: "document", controller: d.documentController }));
         }
-        if (isOverviewItemDocument(element)) {
-            return element.controller.searches.map(s => {
-                return { type: "search", controller: s, query: s.query };
-            });
-        }
-        return [];
+        switch (element.type) {
+            case "document": {
+                const collapse = this.collapseHeading(element.controller);
+                switch (collapse) {
+                    case "collapse-search": {
+                        return this.getSearchesChildren(element.controller);
+                    }
+                    case "collapse-bookmarks": {
+                        return this.getBookmarksChildren(element.controller);
+                    }
+                    case "collapse-all": {
+                        return [];
+                    }
+                    case false: {
+                        return [
+                            { type: "heading", controller: element.controller, heading: "Searches" },
+                            { type: "heading", controller: element.controller, heading: "Bookmarks" },
+                        ];
+                    }
+                    default: {
+                        assertNever(collapse);
+                        return [];
+                    }
+
+                }
+            }
+            case "heading": {
+                switch (element.heading) {
+                    case "Searches": {
+                        return this.getSearchesChildren(element.controller);
+                    }
+                    case "Bookmarks": {
+                        return this.getBookmarksChildren(element.controller);
+                    }
+                    default: {
+                        assertNever(element.heading);
+                        return [];
+                    }
+                }
+            }
+            case "search": {
+                if (this.inlineSearchResults(element.controller)) {
+                    return element.controller.results.map(r => ({ type: "search-result-inline", controller: element.controller, result: r }));
+                } else {
+                    return [];
+                }
+            }
+            case "search-result-inline": {
+                return [];
+            }
+            default: {
+                assertNever(element);
+                return [];
+            }
+        };
     }
 
     getParent(element: OverviewItem): vscode.ProviderResult<OverviewItem> {
-        if (isOverviewItemDocument(element)) {
-            return null;
+        switch (element.type) {
+            case "document": {
+                return null;
+            }
+            case "heading": {
+                return { type: "document", controller: element.controller };
+            }
+            case "search": {
+                if (this.collapseHeading(element.controller.controller) === false) {
+                    return { type: "heading", controller: element.controller.controller, heading: "Searches" };
+                } else {
+                    return { type: "document", controller: element.controller.controller };
+                }
+            }
+            case "search-result-inline": {
+                return { type: "search", controller: element.controller };
+            }
+            default: {
+                assertNever(element);
+                return null;
+            }
         }
-        return { type: "document", controller: element.controller.controller };
     }
 
     getTreeItem(element: OverviewItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -136,9 +241,18 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 item.contextValue = "document";
                 return item;
             };
+            case "heading": {
+                const item = new vscode.TreeItem(
+                    element.heading,
+                    vscode.TreeItemCollapsibleState.Expanded);
+                item.iconPath = new vscode.ThemeIcon("list-unordered");
+                item.contextValue = `heading-${element.heading}`;
+                return item;
+            }
 
             case "search": {
-                const item = new vscode.TreeItem(element.controller.query, vscode.TreeItemCollapsibleState.None);
+                const collapseState = this.inlineSearchResults(element.controller) ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None;
+                const item = new vscode.TreeItem(element.controller.query, collapseState);
                 if (element.controller.hasResults) {
                     item.description = `Found ${element.controller.resultsLength} results`;
                 }
@@ -151,16 +265,23 @@ class OverviewTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 item.contextValue = "search";
                 return item;
             }
+            case "search-result-inline": {
+                return getSearchResultTreeItem(element.result, element.controller);
+            }
+            default: {
+                assertNever(element);
+                throw new Error('unreachable');
+            }
         }
     }
 }
 
-async function registerSideView(): Promise<SearchSideViewController> {
+async function registerSideView(): Promise<ExplorerViewController> {
     const searchResultsTreeDataProvider = new SearchResultsTreeDataProvider();
-    const overviewTreeDataProvider = new OverviewTreeDataProvider(searchResultsTreeDataProvider);
-    const overviewTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.overview", { treeDataProvider: overviewTreeDataProvider });
+    const overviewTreeDataProvider = new ExplorerTreeDataProvider(searchResultsTreeDataProvider);
+    const overviewTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.explorer", { treeDataProvider: overviewTreeDataProvider });
     const searchResultsTreeView = vscode.window.createTreeView("msbuild-structured-log-viewer.search-results", { treeDataProvider: searchResultsTreeDataProvider });
-    const controller = new SearchSideViewController(overviewTreeDataProvider, searchResultsTreeDataProvider, overviewTreeView, searchResultsTreeView);
+    const controller = new ExplorerViewController(overviewTreeDataProvider, searchResultsTreeDataProvider, overviewTreeView, searchResultsTreeView);
     return controller;
 }
 

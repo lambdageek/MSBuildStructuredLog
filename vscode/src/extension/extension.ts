@@ -3,7 +3,7 @@ import type { ExtensionContext } from 'vscode';
 import * as vscode from 'vscode';
 
 import { activateEditorProvider } from "./common/editor";
-import { activateSearch } from './common/search';
+import { activateSearch } from './common/explorer';
 import { openMSBuildLogDocumentWasi } from './web/MSBuildLogDocumentWasi';
 import { openMSBuildLogDocumentDesktopFactory } from './desktop/MSBuildLogDocumentDesktop';
 
