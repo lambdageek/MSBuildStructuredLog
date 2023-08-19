@@ -29,11 +29,11 @@
 
 ## Explorer
 
-- [ ] Rename the Search overview to "Log Explorer" or something like that
+- [x] Rename the Search overview to "Log Explorer" or something like that
 
 ### Inline search results
 
-- [ ] If there are fewer than `N` search results, show them inline in the explorer tree
+- [x] If there are fewer than `N` search results, show them inline in the explorer tree
 
 ### Bookmarks
 

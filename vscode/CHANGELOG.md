@@ -7,6 +7,9 @@
 ## v0.0.4
 
 - Use VS Code icons for build log items, instead of emoji
+- Show upto 10 search results per search inline in the Log Explorer
+- Only show the Search Results view when there are 10 or more results in the selected search
+- If a search is running for a long time, show a "Searching..." message in the Log Explorer
 
 ## v0.0.3
 
