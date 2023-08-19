@@ -334,7 +334,7 @@ async function startNewSearch(uri?: vscode.Uri | OverviewItemDocument): Promise<
     vscode.commands.executeCommand('msbuild-structured-log-viewer.run-search', controller, input);
 }
 
-export async function activateSearch(context: vscode.ExtensionContext) {
+export async function activateExplorer(context: vscode.ExtensionContext) {
     context.subscriptions.push(await registerSideView());
     context.subscriptions.push(vscode.commands.registerCommand('msbuild-structured-log-viewer.start-search', startNewSearch));
 }

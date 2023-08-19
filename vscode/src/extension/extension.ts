@@ -3,7 +3,7 @@ import type { ExtensionContext } from 'vscode';
 import * as vscode from 'vscode';
 
 import { activateEditorProvider } from "./common/editor";
-import { activateSearch } from './common/explorer';
+import { activateExplorer } from './common/explorer';
 import { openMSBuildLogDocumentWasi } from './web/MSBuildLogDocumentWasi';
 import { openMSBuildLogDocumentDesktopFactory } from './desktop/MSBuildLogDocumentDesktop';
 
@@ -17,7 +17,7 @@ async function acquireDotNetRuntime(): Promise<string> {
 }
 
 export async function activate(context: ExtensionContext) {
-    await activateSearch(context);
+    await activateExplorer(context);
     if (!isWeb()) {
         // await vscode.commands.executeCommand('dotnet.showAcquisitionLog');
         const dotnetPath = await acquireDotNetRuntime();

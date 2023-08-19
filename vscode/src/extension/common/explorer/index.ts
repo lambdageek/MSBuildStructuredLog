@@ -1,1 +1,1 @@
-export { activateSearch } from './explorer';
+export { activateExplorer } from './explorer';
