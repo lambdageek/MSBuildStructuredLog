@@ -44,8 +44,26 @@
 
 ## Engine
 
+### Keep up with upstream
+
+- [ ] Upstream the WASI changes and depend on a nuget package
+
 ### Skip boring nodes; send richer summaries
 
 - [ ] de-emphasize skipped targets like the desktop viewer
 - [ ] send parent nodes for search results
 - [ ] don't just use `toString` for node descriptions
+
+## Common
+
+### Cleanup
+
+- [ ] Remove unused messages
+- [ ] Maybe make a uniform mechanism for batching requests
+- [ ] Split out hacks from `Node`: `bookmarked` and `fullyExplored` (and `ancestores`) are controller state, not model
+- [ ] Rename `SearchResult` since it's re-used for bookmarks, too
+
+### Create generic .NET desktop/wasi base extension
+
+Make it easier to create other .NET-based desktop+web extensions by pulling out the common functionality of launching
+a process and interacting with it.
