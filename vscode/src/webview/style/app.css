@@ -1,0 +1,7 @@
+@import "./reset.css";
+@import "./vscode.css";
+
+/* note: this is going to bundle codicon.ttf as a data url. see script/esbuild.js */
+@import "../../../node_modules/@vscode/codicons/dist/codicon.css";
+
+@import "./logviewer.css";

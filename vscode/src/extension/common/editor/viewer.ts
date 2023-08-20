@@ -68,9 +68,6 @@ export class MSBuildLogViewer implements DisposableLike {
         this.webviewPanel.webview.html = await this.getHtmlForWebview(this.webviewPanel.webview, uri, fsPath);
     }
     async getHtmlForWebview(webview: Webview, _uri: Uri, documentFilePath: string): Promise<string> {
-        const resetCssContent = await this.assetContent('reset.css');
-        const vscodeCssContent = await this.assetContent('vscode.css');
-        const logviewerCssContent = await this.assetContent('logviewer.css');
         const scriptContent = await this.assetContent('webview.js', { kind: 'dist/webview' });
         // we embedded codicon in here
         const webviewCssContent = await this.assetContent('webview.css', { kind: 'dist/webview' });
@@ -89,9 +86,6 @@ export class MSBuildLogViewer implements DisposableLike {
 
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-            <style nonce="${nonce}">${resetCssContent}</style>
-            <style nonce="${nonce}">${vscodeCssContent}</style>
-            <style nonce="${nonce}">${logviewerCssContent}</style>
             <style nonce="${nonce}">${webviewCssContent}</style>
 
             <title>MSBuild Log Viewer</title>

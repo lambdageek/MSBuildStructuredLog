@@ -60,7 +60,7 @@ const webviewOptions = {
 
 /** @type BuildOptions  */
 const styleOptions = {
-  entryPoints: ["src/webview/app.css"],
+  entryPoints: ["src/webview/style/app.css"],
   outfile: "dist/webview/webview.css",
   loader: {
     ".ttf": "dataurl",
