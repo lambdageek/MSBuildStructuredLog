@@ -1,44 +1,44 @@
-import { NodeId, Node, FullyExploredNode, isFullyExploredNode } from "../shared/model";
+import { NodeId, Node, NodeDecoration } from "../shared/model";
 
 export class NodeMapper {
-    private readonly map = new Map<NodeId, Node>();
+    private readonly mapNode = new Map<NodeId, Node>();
+    private readonly mapDecoration = new Map<NodeId, NodeDecoration>();
 
     public requestNodeSummary: (nodeId: NodeId) => Promise<void> = () => { throw new Error('requestNodeSummary not set'); };
 
     add(node: Node) {
-        const fullyExplored = node.fullyExplored ?? false;
-        const prev = this.map.get(node.nodeId);
-        if (fullyExplored || prev === undefined) {
-            this.map.set(node.nodeId, node);
-            // FIXME: do we really want the source of truth in here?
-            if (prev?.bookmarked) {
-                node.bookmarked = true;
-            }
+        this.mapNode.set(node.nodeId, node);
+    }
+
+    updateDecoration(nodeId: NodeId, newDecoration: Partial<NodeDecoration>) {
+        const prevDecoration = this.mapDecoration.get(nodeId);
+        const mergedDecoration = {
+            nodeId: nodeId,
+            fullyExplored: newDecoration.fullyExplored ?? prevDecoration?.fullyExplored ?? false,
+            bookmarked: newDecoration.bookmarked ?? prevDecoration?.bookmarked ?? false,
         }
+        this.mapDecoration.set(nodeId, mergedDecoration);
     }
 
     find(nodeId: NodeId): Node | undefined {
-        return this.map.get(nodeId);
+        return this.mapNode.get(nodeId);
+    }
+
+    findDecoration(nodeId: NodeId): NodeDecoration | undefined {
+        return this.mapDecoration.get(nodeId);
     }
 
     bookmark(nodeId: NodeId, bookmarked: boolean) {
-        const node = this.find(nodeId);
-        if (node === undefined) {
-            return;
-        }
-        node.bookmarked = bookmarked;
+        this.updateDecoration(nodeId, { bookmarked })
     }
 
-    async fullyExpore(nodeId: NodeId): Promise<FullyExploredNode> {
-        let node = this.find(nodeId);
-        if (node !== undefined && isFullyExploredNode(node)) {
-            return node;
+    async fullyExpore(nodeId: NodeId): Promise<Node> {
+        let decoration = this.findDecoration(nodeId);
+        if (decoration?.fullyExplored === true) {
+            return this.find(nodeId)!;
         }
-
         await this.requestNodeSummary(nodeId);
-        node = this.find(nodeId);
-        if (node === undefined || !isFullyExploredNode(node))
-            throw new Error(`Failed to fully explore node ${nodeId}`);
-        return node;
+        this.updateDecoration(nodeId, { fullyExplored: true });
+        return this.find(nodeId)!;
     }
 }

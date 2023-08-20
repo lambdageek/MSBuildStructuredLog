@@ -3,22 +3,19 @@ export interface LogModel {
 }
 export type NodeId = number;
 
+// Node comes from the document, NodeDecoration is the state of the node in the UI
 export interface Node {
     nodeId: NodeId;
     summary: string;
-    fullyExplored?: boolean;
     abridged?: boolean;
-    bookmarked?: boolean;
     nodeKind: string;
     children?: NodeId[];
 }
 
-export interface FullyExploredNode extends Node {
-    fullyExplored: true;
-}
-
-export function isFullyExploredNode(node: Node): node is FullyExploredNode {
-    return node.fullyExplored === true;
+export interface NodeDecoration {
+    nodeId: NodeId;
+    fullyExplored: boolean;
+    bookmarked: boolean;
 }
 
 export interface SearchResult<T = NodeId> {

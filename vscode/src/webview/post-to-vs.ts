@@ -25,10 +25,12 @@ export class NodeRequester {
     async requestNodeSummary(nodeId: NodeId): Promise<void> {
         const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
         postToVs({ type: 'summarizeNode', nodeId, requestId });
-        const nodes = await promise;
-        for (const node of nodes.nodes) {
+        const reply = await promise;
+        const nodes = reply.nodes;
+        for (const node of nodes) {
             this.nodeMapper.add(node);
         }
+        this.nodeMapper.updateDecoration(nodeId, { fullyExplored: true });
     }
 
     async requestRoot(): Promise<NodeId> {

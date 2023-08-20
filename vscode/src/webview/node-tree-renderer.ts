@@ -1,5 +1,5 @@
 
-import { NodeId, Node, FullyExploredNode, SearchResult } from "../shared/model";
+import { NodeId, Node, SearchResult } from "../shared/model";
 
 import { NodeMapper } from "./node-mapper";
 import { NodeRequester, requestBookmarkStateChanged, requestRevealNodeFullText } from "./post-to-vs";
@@ -61,13 +61,13 @@ class HoverButtons {
         const node = this.nodeMapper.find(nodeId);
         //target.classList.add('hovering'); for debugging
         if (target.querySelector('.bookmark-widget') === null) {
-            this.renderer.addBookmarkWidget(target as HTMLParagraphElement, node!);
+            this.renderer.addBookmarkWidget(target as HTMLParagraphElement, node!.nodeId);
         }
     }
 
     removeHoverButtons(prevTarget: HTMLParagraphElement) {
         const prevNodeId = parseInt(prevTarget.dataset.nodeId!);
-        const prevNode = this.nodeMapper.find(prevNodeId);
+        const prevNode = this.nodeMapper.findDecoration(prevNodeId);
         //prevTarget.classList.remove('hovering');
         if (prevNode === undefined || !prevNode.bookmarked) {
             prevTarget.removeChild(prevTarget.querySelector('.bookmark-widget')!);
@@ -105,7 +105,7 @@ export class NodeTreeRenderer {
         this.openPath = [];
     }
 
-    highlight(ancestors: NodeId[], result: SearchResult<FullyExploredNode>) {
+    highlight(ancestors: NodeId[], result: SearchResult<Node>) {
         const nodeId = result.nodeId.nodeId;
         this.highlightedNode = nodeId;
         this.openPath = ancestors;
@@ -129,6 +129,7 @@ export class NodeTreeRenderer {
 
     paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undefined) {
         const node = this.nodeMapper.find(nodeId);
+        const nodeDecoration = this.nodeMapper.findDecoration(nodeId);
         if (node === undefined) {
             const button = document.createElement('button');
             button.setAttribute('type', 'button');
@@ -143,7 +144,7 @@ export class NodeTreeRenderer {
                 if (open === 'open' || this.openPath.includes(nodeId)) {
                     details.setAttribute('open', '');
                 }
-                const fullyExplored = node.fullyExplored ?? false;
+                const fullyExplored = nodeDecoration?.fullyExplored ?? false;
                 container.appendChild(details);
                 if (!fullyExplored) {
                     details.addEventListener('toggle', async (ev) => {
@@ -184,15 +185,15 @@ export class NodeTreeRenderer {
             }
             nodeSummary.appendChild(document.createTextNode(node.summary));
 
-            if (this.features?.bookmarks && node.bookmarked) {
-                this.addBookmarkWidget(nodeSummary, node);
+            if (this.features?.bookmarks && nodeDecoration?.bookmarked) {
+                this.addBookmarkWidget(nodeSummary, node.nodeId);
             }
 
             if (nodeSummaryAbridged) {
                 nodeSummary.appendChild(nodeSummaryAbridged);
             }
             summaryDest.appendChild(nodeSummary);
-            if ((node.fullyExplored ?? false) && node.children && node.children.length > 0) {
+            if ((nodeDecoration?.fullyExplored ?? false) && node.children && node.children.length > 0) {
                 for (let i = 0; i < node.children.length; i++) {
                     const childBox = document.createElement('div');
                     childBox.setAttribute('class', 'treeNode');
@@ -222,7 +223,7 @@ export class NodeTreeRenderer {
         }));
     }
 
-    async selectSearchResult(result: SearchResult<FullyExploredNode>): Promise<void> {
+    async selectSearchResult(result: SearchResult<Node>): Promise<void> {
         const ancestors = result.ancestors;
         await this.ensureExplored(ancestors);
         this.highlight(ancestors, result);
@@ -230,26 +231,30 @@ export class NodeTreeRenderer {
         this.renderRoot.querySelector(`[data-node-id="${result.nodeId.nodeId}"]`)?.scrollIntoView();
     }
 
-    toggleBookmark(node: Node) {
+    toggleBookmark(nodeId: NodeId) {
         // TODO this.nodeRequester.toggleBookmark
-        const newState = !node.bookmarked;
-        this.nodeMapper.bookmark(node.nodeId, newState);
-        requestBookmarkStateChanged(node.nodeId, newState);
+        const decoration = this.nodeMapper.findDecoration(nodeId);
+        const wasBookmarked = decoration?.bookmarked ?? false;
+        this.nodeMapper.bookmark(nodeId, !wasBookmarked);
+        requestBookmarkStateChanged(nodeId, !wasBookmarked);
     }
 
-    addBookmarkWidget(target: HTMLParagraphElement, node: Node) {
-        const pin = node.bookmarked ? CodiconIconKind.Pinned : CodiconIconKind.Pin;
+    addBookmarkWidget(target: HTMLParagraphElement, nodeId: NodeId) {
+        const decoration = this.nodeMapper.findDecoration(nodeId);
+        const bookmarked = decoration?.bookmarked ?? false;
+        const pin = bookmarked ? CodiconIconKind.Pinned : CodiconIconKind.Pin;
         const bookmarkWidget = getIconElement(pin, 'bookmark-widget');
-        if (node.bookmarked) {
+        if (bookmarked) {
             bookmarkWidget.classList.add('bookmarked');
         }
         bookmarkWidget.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            const oldKind = node.bookmarked ? CodiconIconKind.Pinned : CodiconIconKind.Pin;
-            const newKind = node.bookmarked ? CodiconIconKind.Pin : CodiconIconKind.Pinned;
+            const decoration = this.nodeMapper.findDecoration(nodeId);
+            const bookmarked = decoration?.bookmarked ?? false;
+            const [oldKind, newKind] = bookmarked ? [CodiconIconKind.Pinned, CodiconIconKind.Pin] : [CodiconIconKind.Pin, CodiconIconKind.Pinned];
             replaceIconElement(bookmarkWidget, oldKind, newKind);
-            this.toggleBookmark(node);
+            this.toggleBookmark(nodeId);
         });
         target.appendChild(bookmarkWidget);
     }

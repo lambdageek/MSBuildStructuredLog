@@ -1,5 +1,5 @@
 
-import { SearchResult, FullyExploredNode } from '../shared/model';
+import { Node, SearchResult } from '../shared/model';
 import { NodeMapper } from './node-mapper';
 
 export class SearchController {
@@ -7,8 +7,9 @@ export class SearchController {
     }
 
     // ensure that the node in the results is fully explored
-    summarizeResult(result: SearchResult): Promise<SearchResult<FullyExploredNode>> {
-        return this.nodeMapper.fullyExpore(result.nodeId).then((n) => ({ ...result, nodeId: n }));
+    async summarizeResult(result: SearchResult): Promise<SearchResult<Node>> {
+        const node = await this.nodeMapper.fullyExpore(result.nodeId);
+        return { ancestors: result.ancestors, nodeId: node };
     }
 }
 
