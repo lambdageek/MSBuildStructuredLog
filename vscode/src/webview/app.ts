@@ -6,9 +6,7 @@ import { isCodeToWebviewMessage, CodeToWebviewEvent, CodeToWebviewReply } from '
 
 import { NodeRequester, postToVs, satisfyRequest } from './post-to-vs';
 import { NodeMapper } from './node-mapper';
-import { LayoutController } from './layout-controller';
 import { NodeTreeRenderer } from './node-tree-renderer';
-import { SideViewController } from './side-view';
 
 import { SearchController } from './search';
 
@@ -22,27 +20,23 @@ function findFatal<T extends HTMLElement = HTMLDivElement>(id: string): T {
 class App {
     binlogFsPath: string = '';
 
-    constructor(readonly nodeRequester: NodeRequester, readonly statusLineDiv: HTMLDivElement, readonly layoutController: LayoutController,
-        readonly searchController: SearchController,
+    constructor(readonly nodeRequester: NodeRequester, readonly statusLineDiv: HTMLDivElement, readonly searchController: SearchController,
         readonly renderer: NodeTreeRenderer) {
 
     }
     static create(): App {
         const statusLineDiv = findFatal('status-line');
         const rootDiv = findFatal('logview-root-node');
-        const gridColumnParent = findFatal('grid-column-parent');
-        const sideview = findFatal('side-view');
+        /*const _gridColumnParent = */ findFatal('grid-column-parent');
 
         const nodeMapper = new NodeMapper();
         const nodeRequester = new NodeRequester(nodeMapper);
         nodeMapper.requestNodeSummary = nodeRequester.requestNodeSummary.bind(nodeRequester);
 
-        const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv);
         const searchController = new SearchController(nodeMapper);
-        const sideViewController = new SideViewController(sideview, layoutController);
-        const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, sideViewController, { bookmarks: true });
+        const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, { bookmarks: true });
 
-        return new App(nodeRequester, statusLineDiv, layoutController, searchController, renderer);
+        return new App(nodeRequester, statusLineDiv, searchController, renderer);
     }
 
     async requestRootAndRefresh() {
@@ -130,15 +124,6 @@ class App {
     onContentLoaded() {
         postToVs({ type: 'contentLoaded' });
     }
-
-    onKeyDown(ev: KeyboardEvent): void {
-        if (ev.key === 'Escape') {
-            if (this.layoutController.sideViewOpen) {
-                this.layoutController.closeSideview();
-                ev.preventDefault();
-            }
-        }
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -147,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const handler = (ev: MessageEvent<CodeToWebviewEvent | CodeToWebviewReply>): void => app.messageHandler(ev, () => window.removeEventListener('message', handler));
         window.addEventListener('message', handler);
-        document.addEventListener('keydown', (ev) => app.onKeyDown(ev));
+        //document.addEventListener('keydown', (ev) => app.onKeyDown(ev));
         app.onContentLoaded();
     }, 0);
 });

@@ -4,8 +4,6 @@ import { NodeId, Node, FullyExploredNode, SearchResult } from "../shared/model";
 import { NodeMapper } from "./node-mapper";
 import { NodeRequester, requestBookmarkStateChanged, requestRevealNodeFullText } from "./post-to-vs";
 
-import { SideViewController } from "./side-view";
-
 import { CodiconIconKind, getIconElement, replaceIconElement } from "./icon";
 
 const nodeIcon: { [key: string]: CodiconIconKind } = {
@@ -87,7 +85,7 @@ export class NodeTreeRenderer {
     private rootId: NodeId = -1;
 
     private readonly hoverButtons: HoverButtons;
-    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly sideViewController: SideViewController, readonly features?: FeatureFlags) {
+    constructor(readonly nodeRequester: NodeRequester, readonly renderRoot: HTMLDivElement, readonly features?: FeatureFlags) {
         if (features?.bookmarks) {
             this.hoverButtons = new HoverButtons(nodeRequester.nodeMapper, this);
             this.hoverButtons.installEventHandlers(renderRoot);
