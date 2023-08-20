@@ -40,7 +40,7 @@ class App {
         const layoutController = new LayoutController(gridColumnParent, sideview, rootDiv);
         const searchController = new SearchController(nodeMapper);
         const sideViewController = new SideViewController(sideview, layoutController);
-        const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, sideViewController);
+        const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, sideViewController, { bookmarks: true });
 
         return new App(nodeRequester, statusLineDiv, layoutController, searchController, renderer);
     }

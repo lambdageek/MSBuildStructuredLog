@@ -4,16 +4,18 @@ import { Node, SearchResult } from "../../../shared/model";
 
 import { DisposableLike } from "../../../shared/disposable";
 
-import { SearchResultController } from "../controller";
+import { DocumentController, SearchResultController } from "../controller";
 
 import * as constants from "../constants";
 
-export class SearchResultTreeItem extends vscode.TreeItem {
-    private static defaultIcon = new vscode.ThemeIcon("inspect");
-    constructor(unexplored: SearchResult, readonly node: Node, readonly controller: SearchResultController) {
+export class RevealedNodeTreeItem extends vscode.TreeItem {
+    public static searchIcon = new vscode.ThemeIcon("inspect");
+    public static bookmarkIcon = new vscode.ThemeIcon("pinned");
+    private static defaultIcon = RevealedNodeTreeItem.searchIcon;
+    constructor(unexplored: SearchResult, readonly node: Node, readonly controller: DocumentController, icon?: vscode.ThemeIcon) {
         super(node.summary, vscode.TreeItemCollapsibleState.None);
         this.description = node.nodeKind;
-        this.iconPath = SearchResultTreeItem.defaultIcon;
+        this.iconPath = icon ?? RevealedNodeTreeItem.defaultIcon;
         this.command = {
             title: "Reveal node",
             command: constants.command.revealNode,
@@ -22,9 +24,15 @@ export class SearchResultTreeItem extends vscode.TreeItem {
     }
 }
 
-export async function getSearchResultTreeItem(element: SearchResult, controller: SearchResultController): Promise<SearchResultTreeItem> {
+export async function getSearchResultTreeItem(element: SearchResult, controller: SearchResultController): Promise<RevealedNodeTreeItem> {
     const node = await controller.controller.document.requestNode(element.nodeId);
-    const item = new SearchResultTreeItem(element, node.node, controller);
+    const item = new RevealedNodeTreeItem(element, node.node, controller.controller);
+    return item;
+}
+
+export async function getBookmarkTreeItem(element: SearchResult, controller: DocumentController): Promise<RevealedNodeTreeItem> {
+    const node = await controller.document.requestNode(element.nodeId);
+    const item = new RevealedNodeTreeItem(element, node.node, controller, RevealedNodeTreeItem.bookmarkIcon);
     return item;
 }
 

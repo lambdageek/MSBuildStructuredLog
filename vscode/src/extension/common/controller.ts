@@ -4,6 +4,7 @@ import {
     EventEmitter,
     LogOutputChannel,
 } from "vscode";
+
 import { AbstractMSBuildLogDocument } from "./document";
 
 import { DisposableLike } from "../../shared/disposable";
@@ -14,7 +15,7 @@ import { WebviewToCodeRequest, WebviewToCodeReply, WebviewToCodeContentLoaded, W
 
 import { CodeToWebviewReply, CodeToWebviewNodeReply } from "../../shared/code-to-webview";
 
-import { SearchResult } from "../../shared/model";
+import { NodeId, SearchResult } from "../../shared/model";
 
 import { SubprocessState } from "./subprocess/subprocess-state";
 
@@ -96,12 +97,14 @@ export class SearchResultController implements DisposableLike {
 // talks to the underlying Engine process
 export class DocumentController implements DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
-    readonly _searches: SearchResultController[] = []
+    readonly _searches: SearchResultController[] = [];
     readonly _onSearchAdded: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchRemoved: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchStarted: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchFinished: EventEmitter<SearchResultController> = new EventEmitter<SearchResultController>();
     readonly _onSearchResultRevealed: EventEmitter<SearchResult> = new EventEmitter<SearchResult>();
+
+    readonly bookmarks: BookmarkController = new BookmarkController(this);
     constructor(readonly context: ExtensionContext, readonly document: AbstractMSBuildLogDocument, readonly out?: LogOutputChannel) {
 
     }
@@ -128,7 +131,11 @@ export class DocumentController implements DisposableLike {
     }
 
     get hasBookmarks(): boolean {
-        return false;
+        return this.bookmarks.hasBookmarks;
+    }
+
+    changeBookmarkState(nodeId: number, bookmarked: boolean): void {
+        this.bookmarks.changeBookmarkState(nodeId, bookmarked);
     }
 
     get onSearchAdded() {
@@ -168,6 +175,53 @@ export class DocumentController implements DisposableLike {
         }
     }
 
+}
+
+export class BookmarkController implements DisposableLike {
+    private readonly subsriptions: DisposableLike[] = [];
+    readonly _onBookmarkAdded: EventEmitter<SearchResult> = new EventEmitter<SearchResult>();
+    readonly _onBookmarkRemoved: EventEmitter<NodeId> = new EventEmitter<NodeId>();
+    private readonly _bookmarks: Map<NodeId, SearchResult> = new Map<NodeId, SearchResult>();
+
+    constructor(readonly controller: DocumentController) {
+    }
+
+    dispose() {
+        this.subsriptions.forEach((d) => d.dispose());
+        this.subsriptions.length = 0;
+    }
+
+    get hasBookmarks(): boolean {
+        return this._bookmarks.size > 0;
+    }
+
+    get bookmarks(): SearchResult[] {
+        return Array.from(this._bookmarks.values());
+    }
+
+    get bookmarksLength(): number {
+        return this._bookmarks.size;
+    }
+
+    get onBookmarkAdded() {
+        return this._onBookmarkAdded.event;
+    }
+
+    get onBookmarkRemoved() {
+        return this._onBookmarkRemoved.event;
+    }
+
+    async changeBookmarkState(nodeId: NodeId, bookmarked: boolean): Promise<void> {
+        if (bookmarked) {
+            // FIXME: cache ancestors
+            const ancestorInfo = await this.controller.document.requestNodeAncestors(nodeId);
+            this._bookmarks.set(nodeId, ancestorInfo.result);
+            this._onBookmarkAdded.fire(ancestorInfo.result);
+        } else {
+            this._bookmarks.delete(nodeId);
+            this._onBookmarkRemoved.fire(nodeId);
+        }
+    }
 }
 
 // talks to the webview
@@ -277,6 +331,9 @@ export class EditorController implements DisposableLike {
             }
             case 'nodeFullTextNoReply':
                 await revealNodeFullText(this.documentController, e.nodeId);
+                break;
+            case 'nodeBookmark':
+                this.documentController.changeBookmarkState(e.nodeId, e.bookmarked);
                 break;
             default:
                 assertNever(e);

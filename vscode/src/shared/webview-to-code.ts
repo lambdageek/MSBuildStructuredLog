@@ -42,6 +42,12 @@ export interface WebviewToCodeNodeFullTextCommand {
     nodeId: NodeId;
 }
 
+export interface WebviewToCodeNodeBookmarkCommand {
+    type: 'nodeBookmark';
+    nodeId: NodeId;
+    bookmarked: boolean;
+}
+
 export type WebviewToCodeRequest =
     WebviewToCodeRootRequest
     | WebviewToCodeNodeRequest
@@ -60,4 +66,7 @@ export interface WebviewToCodeContentLoaded extends WebviewToCodeMessage {
 
 export type WebviewToCodeReply = WebviewToCodeReplyReady;
 
-export type WebviewToCodeCommand = WebviewToCodeNodeFullTextCommand;
+export type WebviewToCodeCommand =
+    WebviewToCodeNodeFullTextCommand
+    | WebviewToCodeNodeBookmarkCommand
+    ;

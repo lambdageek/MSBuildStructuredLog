@@ -6,7 +6,7 @@ import { ControllerGroup, activeLogViewers } from '../editor';
 import { DocumentController, SearchResultController } from '../controller';
 import { DisposableLike } from '../../../shared/disposable';
 
-import { SearchResultsTreeDataProvider, getSearchResultTreeItem } from './search-results';
+import { SearchResultsTreeDataProvider, getSearchResultTreeItem, getBookmarkTreeItem } from './search-results';
 import { assertNever } from '../../../shared/assert-never';
 
 import * as constants from '../constants';
@@ -35,6 +35,15 @@ class ExplorerViewController implements DisposableLike {
         this.subscriptions.push(vscode.commands.registerCommand(constants.command.revealNode, this.revealSearchResultInEditor.bind(this)));
 
         this.subscriptions.push(activeLogViewers.onViewerDisposed(this.unsetSearchResultsControllerWhenEditorClosed.bind(this)));
+        this.subscriptions.push(activeLogViewers.onViewerAdded((controller) => {
+            controller.documentController.bookmarks.onBookmarkAdded(() => {
+                // if this is the first bookmark we added, focus on the document in the explorer view
+                // FIXME: maybe this is annoying?
+                if (controller.documentController.bookmarks.bookmarks.length === 1) {
+                    this.revealDocumentInOverview(controller.documentController);
+                }
+            });
+        }));
     }
 
     dispose() {
@@ -58,8 +67,8 @@ class ExplorerViewController implements DisposableLike {
         }
     }
 
-    async revealSearchResultInEditor(controller: SearchResultController, result: SearchResult) {
-        await controller.reveal(result);
+    async revealSearchResultInEditor(controller: DocumentController, result: SearchResult) {
+        await controller.revealSearchResult(result);
     }
 
     async runSearch(controller: DocumentController, query: string): Promise<void> {
@@ -114,7 +123,13 @@ interface OverviewItemSearchResultInline {
     result: SearchResult;
 }
 
-type OverviewItem = OverviewItemDocument | OverviewItemSearch | OverviewItemHeading | OverviewItemSearchResultInline;
+interface OverviewItemBookmark {
+    type: "bookmark";
+    controller: DocumentController;
+    bookmark: SearchResult;
+}
+
+type OverviewItem = OverviewItemDocument | OverviewItemSearch | OverviewItemHeading | OverviewItemSearchResultInline | OverviewItemBookmark;
 
 class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>, DisposableLike {
     private readonly subscriptions: DisposableLike[] = [];
@@ -132,6 +147,13 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
             controller.documentController.onSearchFinished((_search) => {
+                this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
+            });
+            controller.documentController.bookmarks.onBookmarkAdded(() => {
+                this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
+
+            });
+            controller.documentController.bookmarks.onBookmarkRemoved(() => {
                 this._onDidChangeTreeData.fire(undefined); // FIXME: fire starting from the item for the controller
             });
         }));
@@ -152,8 +174,9 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
             return { type: "search", controller: s, query: s.query };
         });
     }
-    getBookmarksChildren(_controller: DocumentController): OverviewItem[] {
-        return [];
+    async getBookmarksChildren(controller: DocumentController): Promise<OverviewItem[]> {
+        const bookmarks = controller.bookmarks.bookmarks;
+        return bookmarks.map((b) => ({ type: "bookmark", controller, bookmark: b }));
     }
 
     collapseHeading(controller: DocumentController): "collapse-all" | "collapse-search" | "collapse-bookmarks" | false {
@@ -223,6 +246,9 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
             case "search-result-inline": {
                 return [];
             }
+            case "bookmark": {
+                return [];
+            }
             default: {
                 assertNever(element);
                 return [];
@@ -247,6 +273,13 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
             }
             case "search-result-inline": {
                 return { type: "search", controller: element.controller };
+            }
+            case "bookmark": {
+                if (this.collapseHeading(element.controller) === false) {
+                    return { type: "heading", controller: element.controller, heading: "Bookmarks" };
+                } else {
+                    return { type: "document", controller: element.controller };
+                }
             }
             default: {
                 assertNever(element);
@@ -294,6 +327,9 @@ class ExplorerTreeDataProvider implements vscode.TreeDataProvider<OverviewItem>,
             }
             case "search-result-inline": {
                 return getSearchResultTreeItem(element.result, element.controller);
+            }
+            case "bookmark": {
+                return getBookmarkTreeItem(element.bookmark, element.controller);
             }
             default: {
                 assertNever(element);

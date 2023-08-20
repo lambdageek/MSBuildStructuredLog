@@ -7,6 +7,7 @@ import { SyncRequestDispatch } from '../../shared/sync-request';
 
 import {
     DotnetToCodeReply, DotnetToCodeEvent, DotnetToCodeNodeReply, DotnetToCodeManyNodesReply, DotnetToCodeFullTextReply, DotnetToCodeSearchResultsReply,
+    DotnetToCodeNodeAncestorsReply,
     isDotnetToCodeMessage,
 } from './dotnet-to-code';
 import { CodeToDotnetCommand } from './code-to-dotnet';
@@ -52,6 +53,9 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
                 break;
             case 'search':
                 extra = `${c.query}\n`; // FIXME: escape query?
+                break;
+            case 'getNodeAncestors':
+                extra = `${c.nodeId}\n`;
                 break;
             default:
                 assertNever(c);
@@ -128,6 +132,17 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
         return n;
     }
 
+    async requestNodeAncestors(nodeId: NodeId): Promise<DotnetToCodeNodeAncestorsReply> {
+        const [requestId, replyPromise] = this._requestDispatch.promiseReply<DotnetToCodeNodeAncestorsReply>();
+        this.out.info(`requested id=${requestId} ancestors of nodeId=${nodeId}`);
+        await this.postCommand({ requestId, command: 'getNodeAncestors', nodeId });
+        const n = await replyPromise;
+        if (n.type != 'nodeAncestors')
+            throw Error(`expected reply type 'nodeAncestors', but got ${n.type}`);
+        this.out.info(`got node ancestors requestId=${requestId} ancestors.length=${n.result.ancestors.length}`);
+        return n;
+    }
+
     abstract subprocessChangedApplicationState(newState: SubprocessState): void;
 
     gotStdOut(v: unknown) {
@@ -158,6 +173,11 @@ export abstract class AbstractMSBuildLogDocument implements vscode.CustomDocumen
                     const searchResultsReply = value as DotnetToCodeSearchResultsReply;
                     const searchResultsRequestId = searchResultsReply.requestId;
                     this._requestDispatch.satisfy(searchResultsRequestId, searchResultsReply);
+                    break;
+                case 'nodeAncestors':
+                    const nodeAncestorsReply = value as DotnetToCodeNodeAncestorsReply;
+                    const nodeAncestorsRequestId = nodeAncestorsReply.requestId;
+                    this._requestDispatch.satisfy(nodeAncestorsRequestId, nodeAncestorsReply);
                     break;
                 default:
                     assertNever(value);

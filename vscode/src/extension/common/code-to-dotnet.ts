@@ -35,6 +35,11 @@ export interface CodeToDotnetSearchCommand extends CodeToDotnetCommandBase {
     query: string;
 }
 
+export interface CodeToDotnetGetNodeAncestorsCommand extends CodeToDotnetCommandBase {
+    command: 'getNodeAncestors';
+    nodeId: NodeId;
+}
+
 export type CodeToDotnetCommand =
     CodeToDotnetRootCommand
     | CodeToDotnetNodeCommand
@@ -42,5 +47,6 @@ export type CodeToDotnetCommand =
     | CodeToDotnetSummarizeNodeCommand
     | CodeToDotnetNodeFullTextCommand
     | CodeToDotnetSearchCommand
+    | CodeToDotnetGetNodeAncestorsCommand
     ;
 

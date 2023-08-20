@@ -2,7 +2,6 @@
 
 ## vNext
 
-- Bookmarks
 
 ## v0.0.4
 
@@ -11,6 +10,7 @@
 - Only show the Search Results view when there are 10 or more results in the selected search
 - If a search is running for a long time, show a "Searching..." message in the Log Explorer
 - Detailed information is now displayed in a normal text document tab in VS Code, not in an overlay inside the binlog document
+- Bookmarks
 
 ## v0.0.3
 

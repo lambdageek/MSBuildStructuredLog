@@ -37,7 +37,8 @@
 
 ### Bookmarks
 
-- [ ] Allow pinning nodes in the webview and show those bookmarks in the explorer
+- [x] Allow pinning nodes in the webview and show those bookmarks in the explorer
+- [ ] Allow unpinning bookmarks from the explorer
 - [ ] Save bookmarks in the workspace state? Hash the binlog to validate that we're in the same file.
    Create some kind of stable uri scheme for nodes (node ids are not stable)
 

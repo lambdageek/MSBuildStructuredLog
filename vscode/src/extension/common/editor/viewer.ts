@@ -134,6 +134,9 @@ export class MSBuildLogViewer implements DisposableLike {
                 case 'nodeFullTextNoReply':
                     this._onWebviewRequest.fire(e);
                     break;
+                case 'nodeBookmark':
+                    this._onWebviewRequest.fire(e);
+                    break
                 default:
                     this.out?.warn(`unexpected response from webview ${(e as any).type}`)
                     assertNever(e);

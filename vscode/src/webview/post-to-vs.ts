@@ -68,3 +68,7 @@ export async function requestFullText(nodeId: NodeId): Promise<string> {
 export async function requestRevealNodeFullText(nodeId: NodeId): Promise<void> {
     postToVs({ type: 'nodeFullTextNoReply', nodeId });
 }
+
+export async function requestBookmarkStateChanged(nodeId: NodeId, bookmarked: boolean): Promise<void> {
+    postToVs({ type: 'nodeBookmark', nodeId, bookmarked });
+}

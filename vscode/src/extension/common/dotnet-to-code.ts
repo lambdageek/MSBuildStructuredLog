@@ -28,6 +28,12 @@ export interface DotnetToCodeSearchResultsReply extends DotnetToCodeMessage {
     results: SearchResult[];
 }
 
+export interface DotnetToCodeNodeAncestorsReply extends DotnetToCodeMessage {
+    type: 'nodeAncestors';
+    requestId: number;
+    result: SearchResult;
+}
+
 export interface DotnetToCodeReady extends DotnetToCodeMessage {
     type: 'ready';
 }
@@ -44,6 +50,7 @@ export type DotnetToCodeReply =
     | DotnetToCodeManyNodesReply
     | DotnetToCodeFullTextReply
     | DotnetToCodeSearchResultsReply
+    | DotnetToCodeNodeAncestorsReply
     ;
 
 export function isDotnetToCodeMessage(x: unknown): x is DotnetToCodeMessage {

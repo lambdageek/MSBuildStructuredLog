@@ -152,6 +152,29 @@ public sealed class Interactive : IDisposable
                     });
                     break;
                 }
+            case Command.GetNodeAncestors:
+                {
+                    var requestedChildNodeId = int.Parse(Console.ReadLine());
+                    if (_nodeIds.FindNodeWithId(requestedChildNodeId, out BaseNode childNode))
+                    {
+                        var ancestors = childNode.GetParentChainExcludingThis().Select(n => _nodeIds.GetOrAssignId(n)).ToArray();
+                        _sender.SendNodeAncestors(new NodeAncestorsMessage()
+                        {
+                            RequestId = requestId,
+                            Result = new SearchResult
+                            {
+                                NodeId = requestedChildNodeId,
+                                Ancestors = ancestors,
+                            }
+                        });
+                        break;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("no node with requested id");
+                    }
+
+                }
             default:
                 throw new UnreachableException("should not get here");
         }
@@ -194,6 +217,9 @@ public sealed class Interactive : IDisposable
                 return true;
             case "search":
                 command = Command.Search;
+                return true;
+            case "getNodeAncestors":
+                command = Command.GetNodeAncestors;
                 return true;
             default:
                 command = default;
@@ -363,6 +389,7 @@ public sealed class Interactive : IDisposable
         SummarizeNode,
         NodeFullText,
         Search,
+        GetNodeAncestors,
     }
 
 

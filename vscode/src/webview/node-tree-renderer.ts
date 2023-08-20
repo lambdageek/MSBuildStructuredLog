@@ -2,7 +2,7 @@
 import { NodeId, Node, FullyExploredNode, SearchResult } from "../shared/model";
 
 import { NodeMapper } from "./node-mapper";
-import { NodeRequester, requestRevealNodeFullText } from "./post-to-vs";
+import { NodeRequester, requestBookmarkStateChanged, requestRevealNodeFullText } from "./post-to-vs";
 
 import { SideViewController } from "./side-view";
 
@@ -234,11 +234,9 @@ export class NodeTreeRenderer {
 
     toggleBookmark(node: Node) {
         // TODO this.nodeRequester.toggleBookmark
-        if (node.bookmarked) {
-            this.nodeMapper.bookmark(node.nodeId, false);
-        } else {
-            this.nodeMapper.bookmark(node.nodeId, true);
-        }
+        const newState = !node.bookmarked;
+        this.nodeMapper.bookmark(node.nodeId, newState);
+        requestBookmarkStateChanged(node.nodeId, newState);
     }
 
     addBookmarkWidget(target: HTMLParagraphElement, node: Node) {

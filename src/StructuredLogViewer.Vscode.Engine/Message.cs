@@ -10,6 +10,7 @@ namespace StructuredLogViewer.Vscode.Engine;
 [JsonDerivedType(typeof(ManyNodesMessage), typeDiscriminator: "manyNodes")]
 [JsonDerivedType(typeof(FullTextMessage), typeDiscriminator: "fullText")]
 [JsonDerivedType(typeof(SearchResultsMessage), typeDiscriminator: "searchResults")]
+[JsonDerivedType(typeof(NodeAncestorsMessage), typeDiscriminator: "nodeAncestors")]
 [JsonDerivedType(typeof(ReadyMessage), typeDiscriminator: "ready")]
 [JsonDerivedType(typeof(DoneMessage), typeDiscriminator: "done")]
 internal class Message
@@ -65,6 +66,12 @@ internal class SearchResultsMessage : Message
 {
     public int RequestId { get; set; }
     public SearchResult[] Results { get; set; }
+}
+
+internal class NodeAncestorsMessage : Message
+{
+    public int RequestId { get; set; }
+    public SearchResult Result { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
@@ -130,5 +137,11 @@ internal class Sender
         var bs = System.Text.Encoding.UTF8.GetBytes(s);
         Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
         BigMessage(bs);
+    }
+
+    public void SendNodeAncestors(NodeAncestorsMessage message)
+    {
+        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 }
