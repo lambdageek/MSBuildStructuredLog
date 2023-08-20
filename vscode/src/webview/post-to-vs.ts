@@ -1,7 +1,7 @@
 
 import * as req from '../shared/webview-to-code';
 import { NodeId } from '../shared/model';
-import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply, CodeToWebviewFullTextReply } from '../shared/code-to-webview';
+import { CodeToWebviewReply, CodeToWebviewNodeReply, CodeToWebviewManyNodesReply } from '../shared/code-to-webview';
 
 import { SyncRequestDispatch } from '../shared/sync-request';
 
@@ -38,31 +38,6 @@ export class NodeRequester {
         this.nodeMapper.add(node.node);
         return node.node.nodeId;
     }
-}
-
-// async function requestNode(nodeId: NodeId): Promise<void> {
-//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewNodeReply>();
-//     postToVs({ type: 'node', nodeId, requestId });
-//     const node = await promise;
-//     addNodeToMap(node.node);
-// }
-
-// async function requestManyNodes(nodeId: NodeId, count: number = 50): Promise<void> {
-//     const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewManyNodesReply>();
-//     postToVs({ type: 'manyNodes', nodeId, count, requestId });
-//     const nodes = await promise;
-//     for (const node of nodes.nodes) {
-//         addNodeToMap(node);
-//     }
-// }
-
-
-
-export async function requestFullText(nodeId: NodeId): Promise<string> {
-    const [requestId, promise] = requestDispatch.promiseReply<CodeToWebviewFullTextReply>();
-    postToVs({ type: 'nodeFullText', nodeId, requestId });
-    const reply = await promise;
-    return reply.fullText;
 }
 
 export async function requestRevealNodeFullText(nodeId: NodeId): Promise<void> {

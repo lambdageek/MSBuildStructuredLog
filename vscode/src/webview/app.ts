@@ -98,12 +98,6 @@ class App {
                         satisfyRequest(reply.requestId, reply);
                         break;
                     }
-                case 'fullText':
-                    {
-                        const reply = ev.data;
-                        satisfyRequest(reply.requestId, reply);
-                        break;
-                    }
                 case 'revealNode':
                     {
                         const searchResult = ev.data.node;

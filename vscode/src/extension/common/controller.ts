@@ -282,7 +282,6 @@ export class EditorController implements DisposableLike {
             }
             case 'node':
             case 'manyNodes':
-            case 'nodeFullText':
             case 'summarizeNode': {
                 const requestId = e.requestId;
                 const id = e.nodeId;
@@ -310,14 +309,6 @@ export class EditorController implements DisposableLike {
                             type: 'manyNodes',
                             requestId,
                             nodes: summaryNodes.nodes,
-                        }
-                        break;
-                    case 'nodeFullText':
-                        const fullText = await this.documentController.document.requestNodeFullText(id);
-                        reply = {
-                            type: 'fullText',
-                            requestId,
-                            fullText: fullText.fullText,
                         }
                         break;
                     default:
