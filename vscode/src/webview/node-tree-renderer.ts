@@ -1,5 +1,5 @@
 
-import { NodeId, Node, SearchResult } from "../shared/model";
+import { NodeId, Node, SearchResult, NodeDecoration } from "../shared/model";
 
 import { NodeMapper } from "./node-mapper";
 import { NodeRequester, requestBookmarkStateChanged, requestRevealNodeFullText } from "./post-to-vs";
@@ -127,25 +127,68 @@ export class NodeTreeRenderer {
         }
     }
 
+    addMissingNodeWidget(nodeId: NodeId, container: HTMLElement) {
+        const button = document.createElement('button');
+        button.setAttribute('type', 'button');
+        button.addEventListener('click', () => this.onClickMissingNode(nodeId, container, button));
+        button.textContent = `${nodeId}`;
+        container.appendChild(button);
+    }
+
+    addAbridgedDetailsWidget(nodeSummary: HTMLParagraphElement, node: Node) {
+        const nodeSummaryAbridged: HTMLSpanElement = document.createElement('span');
+        nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
+        const spyglassSpan = document.createElement('span');
+        spyglassSpan.setAttribute('class', 'spyglass codicon codicon-search');
+        spyglassSpan.appendChild(document.createTextNode(/*' 🔍'*/'  '));
+        nodeSummaryAbridged.appendChild(spyglassSpan);
+        nodeSummaryAbridged.addEventListener('click', async () => this.onClickAbridgedDetails(node));
+
+        nodeSummary.appendChild(nodeSummaryAbridged);
+    }
+
+    addNodeSummary(node: Node, nodeDecoration?: NodeDecoration): HTMLParagraphElement {
+        const nodeSummary = document.createElement('p');
+        nodeSummary.dataset.nodeId = `${node.nodeId}`;
+        const isHighlighted = this.highlightedNode === node.nodeId ? ' highlighted' : '';
+        nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}${isHighlighted}`);
+        const icon = nodeKindToCodicon(node.nodeKind);
+        if (icon) {
+            nodeSummary.appendChild(getIconElement(icon, 'nodeKind'));
+        } else {
+            const nodeKindSpan = document.createElement('span');
+            nodeKindSpan.setAttribute('class', 'nodeKind');
+            nodeKindSpan.appendChild(document.createTextNode(node.nodeKind));
+            nodeSummary.appendChild(nodeKindSpan);
+        }
+        nodeSummary.appendChild(document.createTextNode(node.summary));
+        if (node.abridged) {
+            this.addAbridgedDetailsWidget(nodeSummary, node);
+        }
+        if (this.features?.bookmarks && nodeDecoration?.bookmarked) {
+            this.addBookmarkWidget(nodeSummary, node.nodeId);
+        }
+        return nodeSummary;
+    }
+
     paintNode(nodeId: NodeId, container: HTMLElement, open?: 'open' | undefined) {
         const node = this.nodeMapper.find(nodeId);
         const nodeDecoration = this.nodeMapper.findDecoration(nodeId);
         if (node === undefined) {
-            const button = document.createElement('button');
-            button.setAttribute('type', 'button');
-            button.addEventListener('click', () => this.onClickMissingNode(nodeId, container, button));
-            button.textContent = `${nodeId}`;
-            container.appendChild(button);
+            this.addMissingNodeWidget(nodeId, container);
         } else {
-            let childrenDest = container;
+            const nodeSummary = this.addNodeSummary(node, nodeDecoration);
+
             let summaryDest = container;
             if (node.children && node.children.length > 0) {
                 const details = document.createElement('details');
                 if (open === 'open' || this.openPath.includes(nodeId)) {
                     details.setAttribute('open', '');
                 }
-                const fullyExplored = nodeDecoration?.fullyExplored ?? false;
                 container.appendChild(details);
+                summaryDest = document.createElement('summary');
+                details.appendChild(summaryDest);
+                const fullyExplored = nodeDecoration?.fullyExplored ?? false;
                 if (!fullyExplored) {
                     details.addEventListener('toggle', async (ev) => {
                         if (details.getAttribute('open') === '') {
@@ -155,52 +198,18 @@ export class NodeTreeRenderer {
                             this.paintNode(nodeId, container, 'open');
                         }
                     }, { once: true });
+                } else {
+                    const childrenDest = details;
+                    for (const childNodeId of node.children) {
+                        const childBox = document.createElement('div');
+                        childBox.setAttribute('class', 'treeNode');
+                        childrenDest.appendChild(childBox);
+                        this.paintNode(childNodeId, childBox);
+                    }
                 }
-                summaryDest = document.createElement('summary');
-                details.appendChild(summaryDest);
-                childrenDest = details;
-            }
-            let nodeSummaryAbridged: HTMLSpanElement | null = null;
-            if (node.abridged) {
-                nodeSummaryAbridged = document.createElement('span');
-                nodeSummaryAbridged.setAttribute('class', 'nodeSummaryAbridged');
-                const spyglassSpan = document.createElement('span');
-                spyglassSpan.setAttribute('class', 'spyglass codicon codicon-search');
-                spyglassSpan.appendChild(document.createTextNode(/*' 🔍'*/'  '));
-                nodeSummaryAbridged.appendChild(spyglassSpan);
-                nodeSummaryAbridged.addEventListener('click', async () => this.onClickAbridgedDetails(node));
-            }
-            const nodeSummary = document.createElement('p');
-            nodeSummary.dataset.nodeId = `${node.nodeId}`;
-            const isHighlighted = this.highlightedNode === node.nodeId ? ' highlighted' : '';
-            nodeSummary.setAttribute('class', `nodeSummary node-kind-${node.nodeKind}${isHighlighted}`);
-            const icon = nodeKindToCodicon(node.nodeKind);
-            if (icon) {
-                nodeSummary.appendChild(getIconElement(icon, 'nodeKind'));
-            } else {
-                const nodeKindSpan = document.createElement('span');
-                nodeKindSpan.setAttribute('class', 'nodeKind');
-                nodeKindSpan.appendChild(document.createTextNode(node.nodeKind));
-                nodeSummary.appendChild(nodeKindSpan);
-            }
-            nodeSummary.appendChild(document.createTextNode(node.summary));
-
-            if (this.features?.bookmarks && nodeDecoration?.bookmarked) {
-                this.addBookmarkWidget(nodeSummary, node.nodeId);
             }
 
-            if (nodeSummaryAbridged) {
-                nodeSummary.appendChild(nodeSummaryAbridged);
-            }
             summaryDest.appendChild(nodeSummary);
-            if ((nodeDecoration?.fullyExplored ?? false) && node.children && node.children.length > 0) {
-                for (let i = 0; i < node.children.length; i++) {
-                    const childBox = document.createElement('div');
-                    childBox.setAttribute('class', 'treeNode');
-                    childrenDest.appendChild(childBox);
-                    this.paintNode(node.children[i], childBox);
-                }
-            }
         }
     }
 
