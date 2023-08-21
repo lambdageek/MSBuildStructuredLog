@@ -23,6 +23,10 @@
 - [x] Instead of opening a fake "frame" in the webview, pop out a virtual document in VS Code.
    Maybe set some threshold for how long the string is.
 
+### Breadcrumbs
+
+- [ ] Navigate to ancestors of highlighted node
+
 ### Open source documents
 
 - [ ] the .binlog either stores the document or it has the path. Add a gesture to open one or both
@@ -42,6 +46,10 @@
 - [ ] Save bookmarks in the workspace state? Hash the binlog to validate that we're in the same file.
    Create some kind of stable uri scheme for nodes (node ids are not stable)
 
+### Hierarchical search results
+
+- [ ] Reuse engine's logic for including some context ancestor nodes in search results (eg conaining Project for a Task)
+
 ## Engine
 
 ### Keep up with upstream
@@ -51,8 +59,11 @@
 ### Skip boring nodes; send richer summaries
 
 - [ ] de-emphasize skipped targets like the desktop viewer
-- [ ] send parent nodes for search results
+
+### Cleaner display
+
 - [ ] don't just use `toString` for node descriptions
+- [ ] be more aggressive about sending abridged nodes (for example very long property values aren't abridged right now)
 
 ## Common
 
