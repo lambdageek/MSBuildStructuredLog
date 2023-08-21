@@ -2,6 +2,9 @@
 
 ## vNext
 
+## v0.0.5
+
+- internal cleanup
 
 ## v0.0.4
 
