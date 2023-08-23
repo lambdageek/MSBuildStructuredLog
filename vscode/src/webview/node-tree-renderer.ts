@@ -168,6 +168,9 @@ export class NodeTreeRenderer {
         if (this.features?.bookmarks && nodeDecoration?.bookmarked) {
             this.addBookmarkWidget(nodeSummary, node.nodeId);
         }
+        if (node.isLowRelevance) {
+            nodeSummary.classList.add('node-lowRelevance');
+        }
         return nodeSummary;
     }
 

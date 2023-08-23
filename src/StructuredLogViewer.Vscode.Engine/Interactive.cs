@@ -281,6 +281,7 @@ public sealed class Interactive : IDisposable
         {
             NodeId = id,
             NodeKind = node.TypeName,
+            IsLowRelevance = (node is IHasRelevance hasRelevance) ? hasRelevance.IsLowRelevance : false,
             Abridged = abridged,
             Summary = summary,
             Children = childIds

@@ -32,6 +32,7 @@ internal class Node
     public string Summary { get; set; }
     public bool Abridged { get; set; }
     public bool FullyExplored { get; set; }
+    public bool IsLowRelevance { get; set; }
     public string NodeKind { get; set; }
     public int NodeId { get; set; }
     public int[]? Children { get; set; }

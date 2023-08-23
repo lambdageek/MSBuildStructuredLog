@@ -102,6 +102,10 @@ summary:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
+p.nodeSummary.node-lowRelevance {
+    color: var(--vscode-disabledForeground);
+}
+
 p.nodeSummary.highlighted {
     background-color: var(--vscode-list-activeSelectionBackground);
     color: var(--vscode-list-activeSelectionForeground);

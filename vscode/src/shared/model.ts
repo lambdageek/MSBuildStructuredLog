@@ -8,6 +8,7 @@ export interface Node {
     nodeId: NodeId;
     summary: string;
     abridged?: boolean;
+    isLowRelevance?: boolean;
     nodeKind: string;
     children?: NodeId[];
 }
