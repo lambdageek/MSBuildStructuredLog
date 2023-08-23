@@ -2,6 +2,8 @@
 
 ## vNext
 
+- de-emphasize low relevance nodes such as skipped targets
+
 ## v0.0.5
 
 - internal cleanup

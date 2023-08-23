@@ -58,7 +58,7 @@
 
 ### Skip boring nodes; send richer summaries
 
-- [ ] de-emphasize skipped targets like the desktop viewer
+- [x] de-emphasize skipped targets like the desktop viewer
 
 ### Cleaner display
 
@@ -71,7 +71,7 @@
 
 - [ ] Remove unused messages
 - [ ] Maybe make a uniform mechanism for batching requests
-- [ ] Split out hacks from `Node`: `bookmarked` and `fullyExplored` (and `ancestores`) are controller state, not model
+- [x] Split out hacks from `Node`: `bookmarked` and `fullyExplored` (and `ancestores`) are controller state, not model
 - [ ] Rename `SearchResult` since it's re-used for bookmarks, too
 
 ### Create generic .NET desktop/wasi base extension
