@@ -38,6 +38,7 @@
 ### Inline search results
 
 - [x] If there are fewer than `N` search results, show them inline in the explorer tree
+- [ ] move "new search" button to the "Searches" label when it is visible
 
 ### Bookmarks
 
