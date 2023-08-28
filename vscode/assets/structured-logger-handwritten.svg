@@ -1,7 +1,7 @@
 <!-- converted by hand from src/StructuredLogViewer.Avalonia/App.xaml -->
 <svg version="1.1"
-     width="256px" height="256px"
-     xmlns="http://www.w3.org/2000/svg">
+     xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 100 100">
 
   <defs>
     <linearGradient id="targetGradient" x1="0" y1="0" x2="1" y2="1">
@@ -33,23 +33,21 @@
     <!-- TargetBrush - Linear Gradient LavenderBrush to Thistle -->
 
     <!-- target stroke: medium purple-->
-    <rect width="35%" height="35%" x="0" y="0" fill="url(#targetGradient)" stroke="mediumpurple" stroke-width="1" />
+    <rect width="35" height="35" x="0" y="0" fill="url(#targetGradient)" stroke="mediumpurple" stroke-width="1" />
 
     <!-- Parameter Brush - Linear Gradient AliceBlue to LightSkyBlue -->
-    <rect width="35%" height="35%" x="25%" y="35%" fill= "url(#parameterGradient)" stroke="dodgerblue" stroke-width="1" />
+    <rect width="35" height="35" x="25" y="35" fill= "url(#parameterGradient)" stroke="dodgerblue" stroke-width="1" />
 
     <!-- TaskBrush - Linear Gradient Cyan to DeepSkyBlue -->
-    <rect width="35%" height="35%" x="25%" y="70%" fill="url(#taskGradient)" stroke="dodgerblue" stroke-width="1" />
+    <rect width="35" height="35" x="25" y="70" fill="url(#taskGradient)" stroke="dodgerblue" stroke-width="1" />
 
     <!-- ItemBrush - Linear Gradient Honeydew to Light Green -->
-    <rect width="35%" height="35%" x="60%" y="35%" fill="url(#itemGradient)" stroke="mediumaquamarine" stroke-width="1"/>
+    <rect width="35" height="35" x="60" y="35" fill="url(#itemGradient)" stroke="mediumaquamarine" stroke-width="1"/>
 
     <!-- Closed Folder Brush - Linear Gradient Floarl White to Navajo White-->
-    <rect width="35%" height="35%" x="60%" y="70%" fill="url(#closedFolderGradient)" stroke="goldenrod" stroke-width="1" />
+    <rect width="35" height="35" x="60" y="70" fill="url(#closedFolderGradient)" stroke="goldenrod" stroke-width="1" />
 
-    <line x1="16%" y1="35%" x2="16%" y2="87%" stroke="black" stroke-width="2" />
-    <line x1="16%" y1="87%" x2="25%" y2="87%" stroke="black" stroke-width="2" />
-    <line x1="16%" y1="53%" x2="25%" y2="53%" stroke="black" stroke-width="2" />
+    <path d="M 16 35 L 16 87 L 25 87 M 16 53 L 25 53" stroke="black" stroke-width="2" fill="none" />
   </g>
 
 </svg>
