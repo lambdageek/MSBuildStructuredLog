@@ -231,7 +231,7 @@ export class NodeTreeRenderer {
 
     private async ensureExplored(nodeIds: NodeId[]): Promise<void> {
         await Promise.all(nodeIds.map(async (nodeId) => {
-            await this.nodeMapper.fullyExpore(nodeId);
+            await this.nodeRequester.fullyExpore(nodeId);
         }));
     }
 

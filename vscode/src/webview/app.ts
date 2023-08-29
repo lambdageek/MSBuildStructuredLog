@@ -31,9 +31,8 @@ class App {
 
         const nodeMapper = new NodeMapper();
         const nodeRequester = new NodeRequester(nodeMapper);
-        nodeMapper.requestNodeSummary = nodeRequester.requestNodeSummary.bind(nodeRequester);
 
-        const searchController = new SearchController(nodeMapper);
+        const searchController = new SearchController(nodeRequester);
         const renderer = new NodeTreeRenderer(nodeRequester, rootDiv, { bookmarks: true });
 
         return new App(nodeRequester, statusLineDiv, searchController, renderer);
