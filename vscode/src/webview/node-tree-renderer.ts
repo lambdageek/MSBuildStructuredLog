@@ -58,19 +58,20 @@ class HoverButtons {
 
     addHoverButtons(target: HTMLParagraphElement, nodeIdData: string) {
         const nodeId = parseInt(nodeIdData);
-        const node = this.nodeMapper.find(nodeId);
         //target.classList.add('hovering'); for debugging
         if (target.querySelector('.bookmark-widget') === null) {
-            this.renderer.addBookmarkWidget(target as HTMLParagraphElement, node!.nodeId);
+            this.renderer.addBookmarkWidget(target as HTMLParagraphElement, nodeId);
         }
     }
 
     removeHoverButtons(prevTarget: HTMLParagraphElement) {
-        const prevNodeId = parseInt(prevTarget.dataset.nodeId!);
-        const prevNode = this.nodeMapper.findDecoration(prevNodeId);
-        //prevTarget.classList.remove('hovering');
-        if (prevNode === undefined || !prevNode.bookmarked) {
-            prevTarget.removeChild(prevTarget.querySelector('.bookmark-widget')!);
+        if (prevTarget.querySelector('.bookmark-widget.bookmarked')) {
+            // if it was bookmarked, don't remove the widget
+            return;
+        }
+        const bookmarkWidget = prevTarget.querySelector('.bookmark-widget');
+        if (bookmarkWidget) {
+            prevTarget.removeChild(bookmarkWidget);
         }
     }
 
@@ -243,12 +244,28 @@ export class NodeTreeRenderer {
         this.renderRoot.querySelector(`[data-node-id="${result.nodeId.nodeId}"]`)?.scrollIntoView();
     }
 
-    toggleBookmark(nodeId: NodeId) {
+    private toggleBookmark(nodeId: NodeId) {
         // TODO this.nodeRequester.toggleBookmark
         const decoration = this.nodeMapper.findDecoration(nodeId);
         const wasBookmarked = decoration?.bookmarked ?? false;
         this.nodeMapper.bookmark(nodeId, !wasBookmarked);
         requestBookmarkStateChanged(nodeId, !wasBookmarked);
+    }
+
+    private onBookmarkClick(ev: MouseEvent, bookmarkWidget: HTMLElement, nodeId: NodeId) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const decoration = this.nodeMapper.findDecoration(nodeId);
+        const wasBookmarked = decoration?.bookmarked ?? false;
+        const [oldKind, newKind] = wasBookmarked ? [CodiconIconKind.Pinned, CodiconIconKind.Pin] : [CodiconIconKind.Pin, CodiconIconKind.Pinned];
+        replaceIconElement(bookmarkWidget, oldKind, newKind);
+        const willBeBookmarked = !wasBookmarked;
+        if (willBeBookmarked) {
+            bookmarkWidget.classList.add('bookmarked');
+        } else {
+            bookmarkWidget.classList.remove('bookmarked');
+        }
+        this.toggleBookmark(nodeId);
     }
 
     addBookmarkWidget(target: HTMLParagraphElement, nodeId: NodeId) {
@@ -259,15 +276,7 @@ export class NodeTreeRenderer {
         if (bookmarked) {
             bookmarkWidget.classList.add('bookmarked');
         }
-        bookmarkWidget.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const decoration = this.nodeMapper.findDecoration(nodeId);
-            const bookmarked = decoration?.bookmarked ?? false;
-            const [oldKind, newKind] = bookmarked ? [CodiconIconKind.Pinned, CodiconIconKind.Pin] : [CodiconIconKind.Pin, CodiconIconKind.Pinned];
-            replaceIconElement(bookmarkWidget, oldKind, newKind);
-            this.toggleBookmark(nodeId);
-        });
+        bookmarkWidget.addEventListener('click', (ev) => this.onBookmarkClick(ev, bookmarkWidget, nodeId));
         target.appendChild(bookmarkWidget);
     }
 
