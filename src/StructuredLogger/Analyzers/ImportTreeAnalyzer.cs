@@ -1,22 +1,33 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 using Microsoft.Build.Framework;
 
 namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class ImportTreeAnalyzer
     {
-        public static TextNode TryGetImportOrNoImport(ProjectImportedEventArgs args, StringCache stringTable)
-        {
-            var message = (string)Reflector.BuildEventArgs_message?.GetValue(args);
+        private StringCache stringTable;
+        private Dictionary<(string, string), string> falseConditionStrings = new();
 
-            var arguments = Reflector.LazyFormattedBuildEventArgs_arguments?.GetValue(args) as object[];
+        public ImportTreeAnalyzer(StringCache stringTable)
+        {
+            this.stringTable = stringTable;
+        }
+
+        public TextNode TryGetImportOrNoImport(ProjectImportedEventArgs args)
+        {
+            var message = Reflector.GetMessage(args);
+            var arguments = Reflector.GetArguments(args);
+
             if (arguments != null && arguments.Length > 0)
             {
                 if (arguments.Length == 4)
                 {
                     if (message == Strings.ProjectImported)
                     {
-                        var importedProject = stringTable.Intern((string)arguments[0]);
-                        var containingProject = stringTable.Intern((string)arguments[1]);
+                        var importedProject = stringTable.SoftIntern((string)arguments[0]);
+                        var containingProject = stringTable.SoftIntern((string)arguments[1]);
                         var line = ParseInt(arguments[2]);
                         var column = ParseInt(arguments[3]);
                         var import = new Import(
@@ -32,35 +43,19 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         message == Strings.ProjectImportSkippedMissingFile ||
                         message == Strings.ProjectImportSkippedInvalidFile)
                     {
-                        var importedProject = stringTable.Intern((string)arguments[0]);
-                        var containingProject = stringTable.Intern((string)arguments[1]);
+                        var importedProject = stringTable.SoftIntern((string)arguments[0]);
+                        var containingProject = stringTable.SoftIntern((string)arguments[1]);
                         var line = ParseInt(arguments[2]);
                         var column = ParseInt(arguments[3]);
 
-                        string reason = "";
-                        if (message == Strings.ProjectImportSkippedExpressionEvaluatedToEmpty)
-                        {
-                            reason = "empty expression";
-                        }
-                        else if (message == Strings.ProjectImportSkippedNoMatches)
-                        {
-                            reason = "no matches";
-                        }
-                        else if (message == Strings.ProjectImportSkippedMissingFile)
-                        {
-                            reason = "missing file";
-                        }
-                        else if (message == Strings.ProjectImportSkippedInvalidFile)
-                        {
-                            reason = "invalid file";
-                        }
+                        var reason = GetNoImportReason(message);
 
                         var noImport = new NoImport(
                             containingProject,
                             importedProject,
                             line,
                             column,
-                            stringTable.Intern(reason));
+                            reason);
                         return noImport;
                     }
                 }
@@ -74,14 +69,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         var column = ParseInt(arguments[3]);
                         var condition = (string)arguments[4];
                         var evaluatedCondition = (string)arguments[5];
-                        string reason = $"false condition; ({condition} was evaluated as {evaluatedCondition}).";
+                        string reason = GetFalseCondition(condition, evaluatedCondition);
 
                         var noImport = new NoImport(
-                            stringTable.Intern(containingProject),
-                            stringTable.Intern(project),
+                            stringTable.SoftIntern(containingProject),
+                            stringTable.SoftIntern(project),
                             line,
                             column,
-                            stringTable.Intern(reason));
+                            reason);
                         return noImport;
                     }
                 }
@@ -91,18 +86,58 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     {
                         var sdk = (string)arguments[0];
                         var noImport = new NoImport(
-                            stringTable.Intern(args.ProjectFile),
-                            stringTable.Intern(args.ImportedProjectFile),
+                            stringTable.SoftIntern(args.ProjectFile),
+                            stringTable.SoftIntern(args.ImportedProjectFile),
                             args.LineNumber,
                             args.ColumnNumber,
-                            stringTable.Intern(string.Format(message, sdk)));
+                            stringTable.SoftIntern(string.Format(message, sdk)));
                         return noImport;
                     }
                 }
             }
 
+            // This shouldn't be reachable for newer binlogs
             var parsed = TryGetImportOrNoImport(args.Message, stringTable);
             return parsed;
+        }
+
+        private string GetFalseCondition(string condition, string evaluated)
+        {
+            var key = (condition, evaluated);
+            lock (falseConditionStrings)
+            {
+                if (!falseConditionStrings.TryGetValue(key, out var result))
+                {
+                    result = $"false condition; ({condition} was evaluated as {evaluated}).";
+                    falseConditionStrings[key] = result;
+                    stringTable.Intern(result);
+                }
+
+                return result;
+            }
+        }
+
+        private static string GetNoImportReason(string message)
+        {
+            string reason = "";
+            if (message == Strings.ProjectImportSkippedExpressionEvaluatedToEmpty)
+            {
+                reason = Strings.NoImportEmptyExpression;
+            }
+            else if (message == Strings.ProjectImportSkippedNoMatches)
+            {
+                reason = Strings.NoImportNoMatches;
+            }
+            else if (message == Strings.ProjectImportSkippedMissingFile)
+            {
+                reason = Strings.NoImportMissingFile;
+            }
+            else if (message == Strings.ProjectImportSkippedInvalidFile)
+            {
+                reason = Strings.NoImportInvalidFile;
+            }
+
+            return reason;
         }
 
         public static TextNode TryGetImportOrNoImport(string text, StringCache stringTable)
@@ -112,11 +147,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 var project = match.Groups["File"].Value;
                 var importedProject = match.Groups["ImportedProject"].Value;
-                var line = int.Parse(match.Groups["Line"].Value);
-                var column = int.Parse(match.Groups["Column"].Value);
+                var line = ParseInt(match.Groups["Line"].Value);
+                var column = ParseInt(match.Groups["Column"].Value);
 
-                project = stringTable.Intern(project);
-                importedProject = stringTable.Intern(importedProject);
+                project = stringTable.SoftIntern(project);
+                importedProject = stringTable.SoftIntern(importedProject);
 
                 var result = new Import(project, importedProject, line, column);
                 return result;
@@ -127,12 +162,12 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 var project = match.Groups["File"].Value;
                 var importedProject = match.Groups["ImportedProject"].Value;
-                var line = int.Parse(match.Groups["Line"].Value);
-                var column = int.Parse(match.Groups["Column"].Value);
+                var line = ParseInt(match.Groups["Line"].Value);
+                var column = ParseInt(match.Groups["Column"].Value);
 
-                project = stringTable.Intern(project);
-                importedProject = stringTable.Intern(importedProject);
-                reason = stringTable.Intern("Not imported due to " + reason);
+                project = stringTable.SoftIntern(project);
+                importedProject = stringTable.SoftIntern(importedProject);
+                reason = stringTable.SoftIntern("Not imported due to " + reason);
 
                 var noImport = new NoImport(project, importedProject, line, column, reason);
                 return noImport;
@@ -141,9 +176,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return null;
         }
 
+        private static readonly NumberFormatInfo currentNumberFormatInfo = NumberFormatInfo.CurrentInfo;
+
         private static int ParseInt(object arg)
         {
-            if (arg is string text && int.TryParse(text, out int result))
+            if (arg is string text && int.TryParse(text, NumberStyles.Integer, currentNumberFormatInfo, out int result))
             {
                 return result;
             }
@@ -153,26 +190,6 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
 
             return 0;
-        }
-
-        public static void VisitMessage(Message message, StringCache stringTable)
-        {
-            var import = TryGetImportOrNoImport(message.Text, stringTable);
-            if (import == null)
-            {
-                return;
-            }
-
-            var evaluation = message.Parent as ProjectEvaluation;
-            if (evaluation == null)
-            {
-                // possible with localized logs
-                return;
-            }
-
-            evaluation.AddImport(import);
-
-            message.Parent.Children.Remove(message);
         }
     }
 }

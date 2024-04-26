@@ -6,7 +6,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class RobocopyTask : CopyTask
     {
-        public override string TypeName => nameof(RobocopyTask);
+        //public override string TypeName => nameof(RobocopyTask);
 
         protected override IEnumerable<FileCopyOperation> GetFileCopyOperations()
         {
@@ -26,6 +26,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }
@@ -34,6 +35,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match, copied: false);
+                    operation.Message = message;
+                    list.Add(operation);
+                    continue;
+                }
+
+                match = Strings.RobocopyFileSkippedAsDuplicateRegex.Match(text);
+                if (match.Success && match.Groups.Count > 2)
+                {
+                    var operation = ParseCopyingFileFrom(match, copied: false);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }
@@ -42,6 +53,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match, copied: false);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }

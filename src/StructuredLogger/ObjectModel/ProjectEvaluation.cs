@@ -29,13 +29,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public override string TypeName => nameof(ProjectEvaluation);
 
+        public HashSet<string> MessageTexts { get; } = new HashSet<string>();
+
         public bool IsLowRelevance
         {
             get => HasFlag(NodeFlags.LowRelevance) && !IsSelected;
             set => SetFlag(NodeFlags.LowRelevance, value);
         }
 
-        public override string ToString() => $"Evaluation Project={Name} File={ProjectFile}";
+        public override string ToString() => $"Evaluation Project={Name} File={ProjectFile} Id={Id:D6}";
 
         public override string ToolTip
         {
@@ -85,7 +87,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public void AddImport(TextNode textNode)
         {
-            NamedNode parent = ImportsFolder;
+            TreeNode parent = ImportsFolder;
 
             IHasSourceFile importOrNot = (IHasSourceFile)textNode;
 

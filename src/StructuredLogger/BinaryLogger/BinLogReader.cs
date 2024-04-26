@@ -33,6 +33,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public event Action<Exception> OnException;
 
         /// <summary>
+        /// Receives recoverable errors during reading. See <see cref="IBuildEventArgsReaderNotifications.RecoverableReadError"/> for documentation on arguments.
+        /// </summary>
+        public event Action<BinaryLogReaderErrorEventArgs>? RecoverableReadError;
+
+        /// <summary>
         /// Read the provided binary log file and raise corresponding events for each BuildEventArgs
         /// </summary>
         /// <param name="sourceFilePath">The full file path of the binary log file</param>
@@ -62,33 +67,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             var bufferedStream = new BufferedStream(gzipStream, 32768);
             var binaryReader = new BinaryReader(bufferedStream);
 
-            int fileFormatVersion = binaryReader.ReadInt32();
-
-            OnFileFormatVersionRead?.Invoke(fileFormatVersion);
-
-            EnsureFileFormatVersionKnown(fileFormatVersion);
+            using var reader = OpenReader(binaryReader);
 
             if (PlatformUtilities.HasThreads)
             {
-                // Use a producer-consumer queue so that IO can happen on one thread
-                // while processing can happen on another thread decoupled. The speed
-                // up is from 4.65 to 4.15 seconds.
-
-                // see issue https://github.com/KirillOsenkov/MSBuildStructuredLog/issues/684
-                var maxBoundedCapacity = 50000;
-
-                var queue = new BlockingCollection<BuildEventArgs>(boundedCapacity: maxBoundedCapacity);
-                var processingTask = System.Threading.Tasks.Task.Run(() =>
-                {
-                    foreach (var args in queue.GetConsumingEnumerable())
-                    {
-                        Dispatch(args);
-                    }
-                });
+                var queue = new BatchBlockingCollection<BuildEventArgs>(boundedCapacity: 10);
+                queue.ProcessItem += Dispatch;
 
                 int recordsRead = 0;
 
-                using var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
                 reader.OnBlobRead += OnBlobRead;
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
@@ -117,17 +104,19 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                     queue.Add(instance);
 
-                    if (progress != null && stopwatch.ElapsedMilliseconds > 200)
+                    // only check the stopwatch every 1000 records, otherwise Stopwatch is showing up in profiles
+                    if (progress != null && (recordsRead % 1000) == 0 && stopwatch.ElapsedMilliseconds > 200)
                     {
                         stopwatch.Restart();
                         var streamPosition = stream.Position;
                         double ratio = (double)streamPosition / streamLength;
-                        progress.Report(ratio);
+                        progress.Report(new ProgressUpdate { Ratio = ratio, BufferLength = queue.Count });
                     }
                 }
 
-                processingTask.Wait();
-                if (fileFormatVersion >= 10)
+                queue.Completion.Wait();
+
+                if (reader.FileFormatVersion >= 10)
                 {
                     var strings = reader.GetStrings();
                     if (strings != null && strings.Any())
@@ -142,7 +131,6 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 int recordsRead = 0;
 
-                using var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
                 reader.OnBlobRead += OnBlobRead;
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
@@ -175,7 +163,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         stopwatch.Restart();
                         var streamPosition = stream.Position;
                         double ratio = (double)streamPosition / streamLength;
-                        progress.Report(ratio);
+                        progress.Report(new ProgressUpdate { Ratio = ratio, BufferLength = queue.Count });
                     }
                 }
 
@@ -183,7 +171,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 {
                     Dispatch(args);
                 }
-                if (fileFormatVersion >= 10)
+                if (reader.FileFormatVersion >= 10)
                 {
                     var strings = reader.GetStrings();
                     if (strings != null && strings.Any())
@@ -193,25 +181,52 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 }
             }
 
-
             if (progress != null)
             {
-                progress.Report(1.0);
+                progress.Report(new ProgressUpdate { Ratio = 1.0, BufferLength = 0 });
             }
         }
 
-        private void EnsureFileFormatVersionKnown(int fileFormatVersion)
+        private BuildEventArgsReader OpenReader(BinaryReader binaryReader)
         {
-            // the log file is written using a newer version of file format
-            // that we don't know how to read
+            int fileFormatVersion = binaryReader.ReadInt32();
+            // Is this the new log format that contains the minimum reader version?
+            bool hasEventOffsets = fileFormatVersion >= BinaryLogger.ForwardCompatibilityMinimalVersion;
+            int minimumReaderVersion = hasEventOffsets
+                ? binaryReader.ReadInt32()
+                : fileFormatVersion;
+
+            OnFileFormatVersionRead?.Invoke(fileFormatVersion);
+
+            EnsureFileFormatVersionKnown(fileFormatVersion, minimumReaderVersion);
+
+            var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
+
+            reader.SkipUnknownEventParts = hasEventOffsets;
+            reader.SkipUnknownEvents = hasEventOffsets;
+
+            // ensure some handler is subscribed, even if we are not interested in the events
+            reader.RecoverableReadError += RecoverableReadError ?? (_ => { });
+
+            return reader;
+        }
+
+        private void EnsureFileFormatVersionKnown(int fileFormatVersion, int minimumReaderVersion)
+        {
             if (fileFormatVersion > BinaryLogger.FileFormatVersion)
             {
-                var text = $"Unsupported log file format. Latest supported version is {BinaryLogger.FileFormatVersion}, the log file has version {fileFormatVersion}.";
+                // prefer the update to newer version to forward compatibility mode
+                if (minimumReaderVersion <= BinaryLogger.FileFormatVersion && !BinaryLogger.IsNewerVersionAvailable)
+                {
+                    return;
+                }
+
+                var text = $"Unsupported log file format. Latest supported version is {BinaryLogger.FileFormatVersion}, the log file has version {fileFormatVersion} (with minimum required reader version {minimumReaderVersion}).";
+                // prefer the update to newer version to forward compatibility mode
                 if (BinaryLogger.IsNewerVersionAvailable)
                 {
                     text += " Update available - restart this instance to automatically use newer version.";
                 }
-
                 throw new NotSupportedException(text);
             }
         }
@@ -257,6 +272,18 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return DisposableEnumerable<Record>.Create(ReadRecords(stream), () => stream.Dispose());
         }
 
+        /// <summary>
+        /// Enumerate over all records in the file. For each record reports
+        /// the start position in the stream, length in bytes and the type of record.
+        /// </summary>
+        /// <remarks>Useful for debugging and analyzing binary logs</remarks>
+        public IEnumerable<RecordInfo> ChunkBinlog(string logFilePath)
+        {
+            var stream = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return DisposableEnumerable<RecordInfo>.Create(
+                ChunkBinlogFromDecompressedStream(GetDecompressedStream(stream)), () => stream.Dispose());
+        }
+
         public IEnumerable<Record> ReadRecords(byte[] bytes)
         {
             var stream = new MemoryStream(bytes);
@@ -269,64 +296,140 @@ namespace Microsoft.Build.Logging.StructuredLogger
         /// </summary>
         /// <remarks>Useful for debugging and analyzing binary logs</remarks>
         public IEnumerable<Record> ReadRecords(Stream binaryLogStream)
+            => ReadRecordsFromDecompressedStream(GetDecompressedStream(binaryLogStream));
+
+        private static Stream GetDecompressedStream(Stream binaryLogStream)
         {
             var gzipStream = new GZipStream(binaryLogStream, CompressionMode.Decompress, leaveOpen: true);
             var bufferedStream = new BufferedStream(gzipStream, 32768);
-            return ReadRecordsFromDecompressedStream(bufferedStream);
+            return bufferedStream;
         }
 
-        public IEnumerable<Record> ReadRecordsFromDecompressedStream(Stream decompressedStream)
+
+        private IEnumerable<RecordInfo> ChunkBinlogFromDecompressedStream(Stream decompressedStream)
         {
-            var wrapper = new WrapperStream(decompressedStream);
+            var binaryReader = new BinaryReader(decompressedStream);
+            using BuildEventArgsReader reader = OpenReader(binaryReader);
+            var hasOffsets = reader.FileFormatVersion >= BinaryLogger.ForwardCompatibilityMinimalVersion;
 
-            var binaryReader = new BinaryReader(wrapper);
+            if (hasOffsets)
+            {
+                return ChunkBinlogWithOffsets(reader);
+            }
+            else
+            {
+                return ReadRecordsFromDecompressedStream(reader, true)
+                    .Select(r => new RecordInfo(r.Args != null ? ToBinaryLogRecordKind(r.Args) : r.Kind, r.Start, r.Length));
+            }
+        }
 
-            int fileFormatVersion = binaryReader.ReadInt32();
+        private IEnumerable<RecordInfo> ChunkBinlogWithOffsets(
+            BuildEventArgsReader reader)
+        {
+            long start = 0;
+            BuildEventArgsReader.RawRecord chunk;
+            do
+            {
+                chunk = reader.ReadRaw(false);
+                yield return new RecordInfo(chunk.RecordKind, start, chunk.Stream.Length);
+                start += chunk.Stream.Length;
+            } while (chunk.RecordKind != BinaryLogRecordKind.EndOfFile);
+        }
 
-            EnsureFileFormatVersionKnown(fileFormatVersion);
+        public static BinaryLogRecordKind ToBinaryLogRecordKind(BuildEventArgs args)
+            => args switch
+            {
+                BuildStartedEventArgs _ => BinaryLogRecordKind.BuildStarted,
+                BuildFinishedEventArgs _ => BinaryLogRecordKind.BuildFinished,
+                ProjectStartedEventArgs _ => BinaryLogRecordKind.ProjectStarted,
+                ProjectFinishedEventArgs _ => BinaryLogRecordKind.ProjectFinished,
+                TargetStartedEventArgs _ => BinaryLogRecordKind.TargetStarted,
+                TargetFinishedEventArgs _ => BinaryLogRecordKind.TargetFinished,
+                TaskStartedEventArgs _ => BinaryLogRecordKind.TaskStarted,
+                TaskFinishedEventArgs _ => BinaryLogRecordKind.TaskFinished,
+                BuildErrorEventArgs _ => BinaryLogRecordKind.Error,
+                BuildWarningEventArgs _ => BinaryLogRecordKind.Warning,
+                CriticalBuildMessageEventArgs _ => BinaryLogRecordKind.CriticalBuildMessage,
+                TaskCommandLineEventArgs _ => BinaryLogRecordKind.TaskCommandLine,
+                TaskParameterEventArgs _ => BinaryLogRecordKind.TaskParameter,
+                ProjectEvaluationStartedEventArgs _ => BinaryLogRecordKind.ProjectEvaluationStarted,
+                ProjectEvaluationFinishedEventArgs _ => BinaryLogRecordKind.ProjectEvaluationFinished,
+                ProjectImportedEventArgs _ => BinaryLogRecordKind.ProjectImported,
+                TargetSkippedEventArgs _ => BinaryLogRecordKind.TargetSkipped,
+                EnvironmentVariableReadEventArgs _ => BinaryLogRecordKind.EnvironmentVariableRead,
+                FileUsedEventArgs _ => BinaryLogRecordKind.FileUsed,
+                PropertyReassignmentEventArgs _ => BinaryLogRecordKind.PropertyReassignment,
+                UninitializedPropertyReadEventArgs _ => BinaryLogRecordKind.UninitializedPropertyRead,
+                PropertyInitialValueSetEventArgs _ => BinaryLogRecordKind.PropertyInitialValueSet,
+                AssemblyLoadBuildEventArgs _ => BinaryLogRecordKind.AssemblyLoad,
+                BuildMessageEventArgs _ => BinaryLogRecordKind.Message,
+                _ => throw new NotImplementedException(),
+            };
 
-            long lengthOfBlobsAddedLastTime = 0;
+        public IEnumerable<Record> ReadRecordsFromDecompressedStream(Stream decompressedStream)
+            => ReadRecordsFromDecompressedStream(decompressedStream, includeAuxiliaryRecords: false);
 
+        public IEnumerable<Record> ReadRecordsFromDecompressedStream(Stream decompressedStream,
+            bool includeAuxiliaryRecords)
+        {
+            var binaryReader = new BinaryReader(decompressedStream);
+            using var reader = OpenReader(binaryReader);
+            return ReadRecordsFromDecompressedStream(reader, includeAuxiliaryRecords);
+        }
+
+        internal IEnumerable<Record> ReadRecordsFromDecompressedStream(BuildEventArgsReader reader, bool includeAuxiliaryRecords)
+        {
             List<Record> blobs = new List<Record>();
 
-            using var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
+            Strings.Initialize();
 
             // forward the events from the reader to the subscribers of this class
             reader.OnBlobRead += OnBlobRead;
 
             long start = 0;
 
+            List<Record>? auxiliaryRecords = includeAuxiliaryRecords ? [] : null;
+
             reader.OnBlobRead += (kind, blob) =>
             {
-                start = wrapper.Position;
+                start = reader.Position;
 
                 var record = new Record
                 {
                     Bytes = blob,
+                    Kind = BinaryLogRecordKind.ProjectImportArchive,
                     Args = null,
-                    Start = start - blob.Length, // TODO: check if this is accurate
+                    Start = start - blob.Length,
                     Length = blob.Length
                 };
 
-                blobs.Add(record);
-                lengthOfBlobsAddedLastTime += blob.Length;
+                if (auxiliaryRecords != null)
+                {
+                    auxiliaryRecords.Add(record);
+                }
+                else
+                {
+                    blobs.Add(record);
+                }
             };
 
             reader.OnStringRead += text =>
             {
-                long length = wrapper.Position - start;
+                long length = reader.Position - start;
+                auxiliaryRecords?.Add(new Record { Kind = BinaryLogRecordKind.String, Start = start, Length = length });
 
                 // re-read the current position as we're just about to start reading
                 // the actual BuildEventArgs record
-                start = wrapper.Position;
+                start = reader.Position;
 
                 OnStringRead?.Invoke(text, length);
             };
 
             reader.OnNameValueListRead += list =>
             {
-                long length = wrapper.Position - start;
-                start = wrapper.Position;
+                long length = reader.Position - start;
+                auxiliaryRecords?.Add(new Record { Kind = BinaryLogRecordKind.NameValueList, Start = start, Length = length });
+                start = reader.Position;
                 OnNameValueListRead?.Invoke(list, length);
             };
 
@@ -334,9 +437,18 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 BuildEventArgs instance = null;
 
-                start = wrapper.Position;
+                start = reader.Position;
 
                 instance = reader.Read();
+                if (instance == null)
+                {
+                    auxiliaryRecords?.Add(new Record { Kind = BinaryLogRecordKind.EndOfFile, Start = start, Length = reader.Position - start });
+                }
+                foreach (Record auxiliaryRecord in auxiliaryRecords ?? Enumerable.Empty<Record>())
+                {
+                    yield return auxiliaryRecord;
+                }
+                auxiliaryRecords?.Clear();
                 if (instance == null)
                 {
                     break;
@@ -347,70 +459,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     Bytes = null, // probably can reconstruct this from the Args if necessary
                     Args = instance,
                     Start = start,
-                    Length = wrapper.Position - start
+                    Length = reader.Position - start
                 };
 
                 yield return record;
-
-                lengthOfBlobsAddedLastTime = 0;
             }
 
             foreach (var blob in blobs)
             {
                 yield return blob;
             }
-        }
-    }
-
-    public class WrapperStream : Stream
-    {
-        private readonly Stream stream;
-
-        public WrapperStream(Stream stream)
-        {
-            this.stream = stream;
-        }
-
-        public override bool CanRead => stream.CanRead;
-
-        public override bool CanSeek => stream.CanSeek;
-
-        public override bool CanWrite => stream.CanWrite;
-
-        public override long Length => stream.Length;
-
-        private long position;
-        public override long Position
-        {
-            get => position;
-            set => throw new NotImplementedException();
-        }
-
-        public override void Flush()
-        {
-            stream.Flush();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            var result = stream.Read(buffer, offset, count);
-            position += result;
-            return result;
-        }
-
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            return stream.Seek(offset, origin);
-        }
-
-        public override void SetLength(long value)
-        {
-            stream.SetLength(value);
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            stream.Write(buffer, offset, count);
         }
     }
 }

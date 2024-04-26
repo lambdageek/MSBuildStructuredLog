@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,12 @@ namespace Microsoft.Build.Logging.StructuredLogger
             set => SetFlag(NodeFlags.Expanded, value);
         }
 
+        public bool DisableChildrenCache
+        {
+            get => HasFlag(NodeFlags.DisableChildrenCache);
+            set => SetFlag(NodeFlags.DisableChildrenCache, value);
+        }
+
         public virtual string ToolTip
         {
             get => null;
@@ -35,11 +42,41 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 if (children == null)
                 {
-                    children = new ChildrenList();
+                    children = CreateChildrenList();
                 }
 
                 return children;
             }
+        }
+
+        protected ChildrenList CreateChildrenList()
+        {
+            if (DisableChildrenCache)
+            {
+                return new ChildrenList();
+            }
+
+            return new CacheByNameChildrenList();
+        }
+
+        protected ChildrenList CreateChildrenList(int capacity)
+        {
+            if (DisableChildrenCache)
+            {
+                return new ChildrenList(capacity);
+            }
+
+            return new CacheByNameChildrenList(capacity);
+        }
+
+        protected ChildrenList CreateChildrenList(IEnumerable<BaseNode> children)
+        {
+            if (DisableChildrenCache)
+            {
+                return new ChildrenList(children);
+            }
+
+            return new CacheByNameChildrenList(children);
         }
 
         public void EnsureChildrenCapacity(int capacity)
@@ -51,7 +88,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             if (children == null)
             {
-                children = new ChildrenList(capacity);
+                children = CreateChildrenList(capacity);
             }
             else if (children is ChildrenList list)
             {
@@ -59,19 +96,24 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
-        public void SortChildren()
+        private static int CompareByToString(BaseNode o1, BaseNode o2)
+            => string.Compare(o1.ToString(), o2.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        public void SortChildren(Comparison<BaseNode> comparison = null)
         {
             if (children == null || children.Count < 2)
             {
                 return;
             }
 
+            comparison ??= CompareByToString;
+
             if (children is not ChildrenList list)
             {
-                list = new ChildrenList(children);
+                list = CreateChildrenList(children);
             }
 
-            list.Sort((o1, o2) => string.Compare(o1.ToString(), o2.ToString(), StringComparison.OrdinalIgnoreCase));
+            list.Sort(comparison);
             if (list != children)
             {
                 children = list.ToArray();
@@ -84,17 +126,13 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
-        [System.Diagnostics.Conditional("TurnedOff")]
-        public void Seal()
-        {
-            if (children != null)
-            {
-                children = children.ToArray();
-            }
-        }
-
         public void MakeChildrenObservable()
         {
+            if (children is ObservableCollection<BaseNode>)
+            {
+                return;
+            }
+
             if (children == null)
             {
                 children = new ObservableCollection<BaseNode>();
@@ -108,26 +146,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
             RaisePropertyChanged(nameof(Children));
         }
 
-        public void Unseal()
-        {
-            if (children is BaseNode[])
-            {
-                children = new ChildrenList(children);
-            }
-        }
-
         public void AddChildAtBeginning(BaseNode child)
         {
             if (children == null)
             {
-                children = new ChildrenList();
+                children = CreateChildrenList(1);
             }
 
             children.Insert(0, child);
-            if (child is NamedNode named)
-            {
-                ((ChildrenList)children).OnAdded(named);
-            }
 
             child.Parent = this;
         }
@@ -136,16 +162,33 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             if (children == null)
             {
-                children = new ChildrenList();
+                children = CreateChildrenList(1);
             }
 
             children.Add(child);
-            if (child is NamedNode named)
-            {
-                ((ChildrenList)children).OnAdded(named);
-            }
 
             child.Parent = this;
+        }
+
+        public T GetOrCreateNodeWithText<T>(string text, bool addAtBeginning = false) where T : TextNode, new()
+        {
+            T node = FindChild<T>(text);
+            if (node != null)
+            {
+                return node;
+            }
+
+            var newNode = new T() { Text = text };
+            if (addAtBeginning)
+            {
+                this.AddChildAtBeginning(newNode);
+            }
+            else
+            {
+                this.AddChild(newNode);
+            }
+
+            return newNode;
         }
 
         public T GetOrCreateNodeWithName<T>(string name, bool addAtBeginning = false) where T : NamedNode, new()
@@ -169,23 +212,25 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return newNode;
         }
 
-        public virtual T FindChild<T>(string name) where T : NamedNode
+        public virtual T FindChild<T>(string name) where T : BaseNode
         {
             if (Children is ChildrenList list)
             {
                 return list.FindNode<T>(name);
             }
 
-            return FindChild<T>(c => string.Equals(c.LookupKey, name, StringComparison.OrdinalIgnoreCase));
+            return FindChild<T>(c => string.Equals(c.Title, name, StringComparison.OrdinalIgnoreCase));
         }
 
         public virtual T FindChild<T>(Predicate<T> predicate = null) where T : BaseNode
         {
             if (HasChildren)
             {
-                for (int i = 0; i < Children.Count; i++)
+                var children = Children;
+                int count = children.Count;
+                for (int i = 0; i < count; i++)
                 {
-                    if (Children[i] is T child && (predicate == null || predicate(child)))
+                    if (children[i] is T child && (predicate == null || predicate(child)))
                     {
                         return child;
                     }
@@ -209,8 +254,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             if (HasChildren)
             {
-                foreach (var child in Children)
+                var children = Children;
+                for (int i = 0; i < children.Count; i++)
                 {
+                    var child = children[i];
                     if (child is T typedChild && (predicate == null || predicate(typedChild)))
                     {
                         return typedChild;
@@ -225,8 +272,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             if (HasChildren)
             {
-                foreach (var child in Children)
+                var children = Children;
+                for (int i = 0; i < children.Count; i++)
                 {
+                    var child = children[i];
+
                     var treeNode = child as TreeNode;
                     if (treeNode != null)
                     {
