@@ -137,7 +137,7 @@
 	},
 	"dependencies": {
 		"@streamparser/json": "^0.0.16",
-		"@vscode/codicons": "^0.0.33",
+		"@vscode/codicons": "^0.0.35",
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
 	},
 	"devDependencies": {
