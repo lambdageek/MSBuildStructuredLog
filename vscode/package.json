@@ -136,7 +136,7 @@
 		"gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
-		"@streamparser/json": "^0.0.16",
+		"@streamparser/json": "^0.0.20",
 		"@vscode/codicons": "^0.0.35",
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
 	},
