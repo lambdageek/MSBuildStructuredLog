@@ -6,18 +6,17 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+using System.Xml;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Microsoft.Build.Logging.StructuredLogger;
 using Microsoft.Language.Xml;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using Avalonia.Interactivity;
-using Avalonia.Threading;
-using Avalonia.Input;
-using Avalonia;
-using Avalonia.Styling;
-using Avalonia.Data;
-using Avalonia.Layout;
-using System.Xml;
 
 namespace StructuredLogViewer.Avalonia.Controls
 {
@@ -27,7 +26,7 @@ namespace StructuredLogViewer.Avalonia.Controls
         public TreeViewItem SelectedTreeViewItem { get; private set; }
         public string LogFilePath => Build?.LogFilePath;
 
-        private ScrollViewer scrollViewer;
+        private ScrollViewer scrollViewer = null;
 
         private SourceFileResolver sourceFileResolver;
         private ArchiveFileResolver archiveFile => sourceFileResolver.ArchiveFile;
@@ -127,10 +126,10 @@ namespace StructuredLogViewer.Avalonia.Controls
 
             Build = build;
 
-            if (build.SourceFilesArchive != null)
+            // first try to see if the source archive was embedded in the log
+            if (build.SourceFiles != null)
             {
-                // first try to see if the source archive was embedded in the log
-                sourceFileResolver = new SourceFileResolver(build.SourceFiles.Values);
+                sourceFileResolver = new SourceFileResolver(build.SourceFiles);
             }
             else
             {
@@ -238,12 +237,10 @@ on the node will navigate to the corresponding source code associated with the n
 
 More functionality is available from the right-click context menu for each node.
 Right-clicking a project node may show the 'Preprocess' option if the version of MSBuild was at least 15.3.";
-                build.Unseal();
 #if DEBUG
                 text = build.StringTable.Intern(text);
 #endif
                 build.AddChild(new Note { Text = text });
-                build.Seal();
             }
 
             breadCrumb.SelectionChanged += BreadCrumb_SelectionChanged;
@@ -363,10 +360,6 @@ Right-clicking a project node may show the 'Preprocess' option if the version of
             "$additem",
             "$removeitem",
             "$metadata",
-            "$copytask",
-            "$csctask",
-            "$vbctask",
-            "$fsctask"
         };
 
         private void UpdateWatermark()
@@ -849,7 +842,7 @@ Recent:
 
             if (!Build.Succeeded)
             {
-                var firstError = Build.FindFirstInSubtreeIncludingSelf<Error>();
+                var firstError = Build.FirstError;
                 if (firstError != null)
                 {
                     SelectItem(firstError);
@@ -954,14 +947,7 @@ Recent:
 
             string GetText(BaseNode node)
             {
-                if (node is IHasTitle hasTitle)
-                {
-                    return hasTitle.Title ?? "";
-                }
-                else
-                {
-                    return node.ToString() ?? "";
-                }
+                return node.Title ?? node.ToString();
             }
         }
 
@@ -1046,6 +1032,11 @@ Recent:
                 {
                     sb.AppendLine();
                 }
+
+                if (sb.Length > Microsoft.Build.Logging.StructuredLogger.StringWriter.MaxStringLength)
+                {
+                    break;
+                }
             }
 
             CopyToClipboard(sb.ToString());
@@ -1064,6 +1055,11 @@ Recent:
             {
                 item.VisitAllChildren<BaseNode>(s =>
                 {
+                    if (sb.Length > Microsoft.Build.Logging.StructuredLogger.StringWriter.MaxStringLength)
+                    {
+                        return;
+                    }
+
                     if (s is SourceFile file && !string.IsNullOrEmpty(file.SourceFilePath))
                     {
                         sb.AppendLine(file.SourceFilePath);
@@ -1143,12 +1139,14 @@ Recent:
                 || (node is Task task && task.Parent is Target parentTarget && sourceFileResolver.HasFile(parentTarget.SourceFilePath))
                 || (node is IHasSourceFile ihsf && ihsf.SourceFilePath != null && sourceFileResolver.HasFile(ihsf.SourceFilePath))
                 || (node is NameValueNode nvn && nvn.IsValueShortened)
+                || (node is NamedNode nn && nn.IsNameShortened)
                 || (node is TextNode tn && tn.IsTextShortened);
         }
 
         private bool HasFullText(BaseNode node)
         {
             return (node is NameValueNode nvn && nvn.IsValueShortened)
+                || (node is NamedNode nn && nn.IsNameShortened)
                 || (node is TextNode tn && tn.IsTextShortened);
         }
 
@@ -1209,8 +1207,10 @@ Recent:
                         return DisplayFile(sourceFile.SourceFilePath, sourceFileLine.LineNumber);
                     case NameValueNode nameValueNode when nameValueNode.IsValueShortened:
                         return DisplayText(nameValueNode.Value, nameValueNode.Name);
+                    case NamedNode namedNode when namedNode.IsNameShortened:
+                        return DisplayText(namedNode.Name, namedNode.ShortenedName ?? namedNode.TypeName);
                     case TextNode textNode when textNode.IsTextShortened:
-                        return DisplayText(textNode.Text, textNode.Name ?? textNode.GetType().Name);
+                        return DisplayText(textNode.Text, textNode.ShortenedText ?? textNode.TypeName);
                     default:
                         return false;
                 }
@@ -1231,7 +1231,7 @@ Recent:
                 return false;
             }
 
-            string preprocessableFilePath = Utilities.InsertMissingDriveSeparator(sourceFilePath);
+            string preprocessableFilePath = sourceFilePath;
 
             Action preprocess = null;
             if (evaluation != null)
@@ -1339,7 +1339,16 @@ Recent:
 
         public IEnumerable BuildResultTree(object resultsObject, bool moreAvailable = false)
         {
-            var folder = ResultTree.BuildResultTree(resultsObject, moreAvailable, Elapsed);
+            return BuildResultTree(resultsObject, moreAvailable, addDuration: true);
+        }
+
+        public IEnumerable BuildResultTree(object resultsObject, bool moreAvailable = false, bool addDuration = true)
+        {
+            var folder = ResultTree.BuildResultTree(
+                resultsObject,
+                Elapsed,
+                addDuration: addDuration,
+                addWhenNoResults: () => new Message { Text = "No results found." });
 
             if (moreAvailable)
             {

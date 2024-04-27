@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net472;net7.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
+    <RootNamespace>StructuredLogViewer</RootNamespace>
     <UseWPF>true</UseWPF>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <Prefer32Bit Condition="$(Prefer32Bit)==''">false</Prefer32Bit>
@@ -11,6 +12,7 @@
     <Company>Microsoft</Company>
     <Product>MSBuild Structured Log Viewer</Product>
     <AssemblyTitle>MSBuild Structured Log Viewer</AssemblyTitle>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup Condition="$(TargetFramework) == 'net472'">
@@ -31,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\StructuredLogger.Utils\StructuredLogger.Utils.csproj" />
     <ProjectReference Include="..\StructuredLogger\StructuredLogger.csproj" />
     <ProjectReference Include="..\StructuredLogViewer.Core\StructuredLogViewer.Core.csproj" />
     <ProjectReference Include="..\TaskRunner\TaskRunner.csproj" />

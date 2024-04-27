@@ -26,6 +26,7 @@
     <file src="DeltaCompressionDotNet.dll" target="lib\net472" />
     <file src="DeltaCompressionDotNet.MsDelta.dll" target="lib\net472" />
     <file src="DeltaCompressionDotNet.PatchApi.dll" target="lib\net472" />
+    <file src="DotUtils.MsBuild.SensitiveDataDetector.dll" target="lib\net472" />
     <file src="ICSharpCode.AvalonEdit.dll" target="lib\net472" />
     <file src="ICSharpCode.SharpZipLib.dll" target="lib\net472" />
     <file src="Microsoft.Build.dll" target="lib\net472" />
@@ -38,10 +39,19 @@
     <file src="Mono.Cecil.Mdb.dll" target="lib\net472" />
     <file src="Mono.Cecil.Pdb.dll" target="lib\net472" />
     <file src="Mono.Cecil.Rocks.dll" target="lib\net472" />
+    <file src="Newtonsoft.Json.dll" target="lib\net472" />
+    <file src="NuGet.Common.dll" target="lib\net472" />
+    <file src="NuGet.Configuration.dll" target="lib\net472" />
+    <file src="NuGet.Frameworks.dll" target="lib\net472" />
+    <file src="NuGet.LibraryModel.dll" target="lib\net472" />
+    <file src="NuGet.Packaging.dll" target="lib\net472" />
+    <file src="NuGet.ProjectModel.dll" target="lib\net472" />
     <file src="NuGet.Squirrel.dll" target="lib\net472" />
+    <file src="NuGet.Versioning.dll" target="lib\net472" />
     <file src="Splat.dll" target="lib\net472" />
     <file src="Squirrel.dll" target="lib\net472" />
     <file src="StructuredLogger.dll" target="lib\net472" />
+    <file src="StructuredLogger.Utils.dll" target="lib\net472" />
     <file src="StructuredLogViewer.Core.dll" target="lib\net472" />
     <file src="StructuredLogViewer.exe" target="lib\net472" />
     <file src="StructuredLogViewer.exe.config" target="lib\net472" />

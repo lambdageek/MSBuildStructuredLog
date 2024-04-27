@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Threading;
+using TPLTask = System.Threading.Tasks.Task;
 
 namespace Microsoft.Build.Logging.StructuredLogger
 {
@@ -14,15 +14,37 @@ namespace Microsoft.Build.Logging.StructuredLogger
     {
         public StringCache StringTable { get; } = new StringCache();
 
+        public SearchIndex SearchIndex { get; set; }
+
+        public IList<ISearchExtension> SearchExtensions { get; } = new List<ISearchExtension>();
+
         public bool IsAnalyzed { get; set; }
         public bool Succeeded { get; set; }
+        public Error FirstError { get; set; }
 
         public string LogFilePath { get; set; }
         public int FileFormatVersion { get; set; }
         public byte[] SourceFilesArchive { get; set; }
 
+        private readonly List<TPLTask> backgroundTasks = new List<TPLTask>();
+
+        private IReadOnlyList<ArchiveFile> sourceFiles;
+        public IReadOnlyList<ArchiveFile> SourceFiles
+        {
+            get
+            {
+                if (sourceFiles == null && SourceFilesArchive != null)
+                {
+                    sourceFiles = ReadSourceFiles(SourceFilesArchive);
+                    SourceFilesArchive = null;
+                }
+
+                return sourceFiles;
+            }
+        }
+
         private string msbuildVersion;
-        public string MSBuildVersion 
+        public string MSBuildVersion
         {
             get => msbuildVersion;
             set
@@ -76,31 +98,6 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return version.Major > major || (version.Major == major && version.Minor >= minor);
         }
 
-        private Dictionary<string, ArchiveFile> sourceFiles;
-        public Dictionary<string, ArchiveFile> SourceFiles
-        {
-            get
-            {
-                if (sourceFiles == null)
-                {
-                    lock (this)
-                    {
-                        if (sourceFiles == null)
-                        {
-                            sourceFiles = new Dictionary<string, ArchiveFile>();
-                            if (SourceFilesArchive != null)
-                            {
-                                var files = ReadSourceFiles(SourceFilesArchive);
-                                sourceFiles = files.ToDictionary(file => file.FullPath);
-                            }
-                        }
-                    }
-                }
-
-                return sourceFiles;
-            }
-        }
-
         private NamedNode evaluationFolder;
         public NamedNode EvaluationFolder
         {
@@ -108,7 +105,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 if (evaluationFolder == null)
                 {
-                    evaluationFolder = GetOrCreateNodeWithName<TimedNode>(Strings.Evaluation);
+                    evaluationFolder = new TimedNode { Name = Strings.Evaluation };
+                    AddChild(evaluationFolder);
                 }
 
                 return evaluationFolder;
@@ -145,9 +143,17 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
+        public static string IgnoreEmbeddedFiles { get; set; }
+
         public static IReadOnlyList<ArchiveFile> ReadSourceFiles(Stream stream)
         {
             var result = new List<ArchiveFile>();
+
+            string[] ignoreSubstrings = null;
+            if (!string.IsNullOrWhiteSpace(IgnoreEmbeddedFiles))
+            {
+                ignoreSubstrings = IgnoreEmbeddedFiles.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+            }
 
             try
             {
@@ -155,6 +161,24 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 {
                     foreach (var entry in zipArchive.Entries)
                     {
+                        if (ignoreSubstrings != null)
+                        {
+                            bool ignore = false;
+                            foreach (var substring in ignoreSubstrings)
+                            {
+                                if (entry.FullName.IndexOf(substring, StringComparison.OrdinalIgnoreCase) != -1)
+                                {
+                                    ignore = true;
+                                    break;
+                                }
+                            }
+
+                            if (ignore)
+                            {
+                                continue;
+                            }
+                        }
+
                         var file = ArchiveFile.From(entry);
                         result.Add(file);
                     }
@@ -170,6 +194,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
         }
 
         public BuildStatistics Statistics { get; set; } = new BuildStatistics();
+
+        public FileCopyMap FileCopyMap { get; set; }
 
         public Dictionary<string, HashSet<string>> TaskAssemblies { get; } = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -212,15 +238,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return found;
         }
 
-        private Dictionary<int, ProjectEvaluation> evaluationById;
+        private Dictionary<int, ProjectEvaluation> evaluationById = new Dictionary<int, ProjectEvaluation>();
 
         public ProjectEvaluation FindEvaluation(int id)
         {
-            if (evaluationById == null)
-            {
-                evaluationById = new Dictionary<int, ProjectEvaluation>();
-            }
-
             if (!evaluationById.TryGetValue(id, out var projectEvaluation))
             {
                 var evaluation = EvaluationFolder;
@@ -229,7 +250,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     return null;
                 }
 
-                projectEvaluation = evaluation.FindChild<ProjectEvaluation>(e => e.Id == id);
+                // the evaluation we want is likely to be at the end (recently added)
+                projectEvaluation = evaluation.FindLastChild<ProjectEvaluation>(e => e.Id == id);
                 if (projectEvaluation != null)
                 {
                     evaluationById[id] = projectEvaluation;
@@ -237,6 +259,35 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
 
             return projectEvaluation;
+        }
+
+        public void RunInBackground(Action action)
+        {
+            if (PlatformUtilities.HasThreads)
+            {
+                var task = TPLTask.Run(action);
+                lock (backgroundTasks)
+                {
+                    backgroundTasks.Add(task);
+                }
+            }
+            else
+            {
+                action();
+            }
+        }
+
+        public void WaitForBackgroundTasks()
+        {
+            lock (backgroundTasks)
+            {
+                foreach (var task in backgroundTasks)
+                {
+                    task.Wait();
+                }
+
+                backgroundTasks.Clear();
+            }
         }
     }
 }

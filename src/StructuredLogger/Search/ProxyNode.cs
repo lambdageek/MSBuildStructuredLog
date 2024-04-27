@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using StructuredLogViewer;
@@ -7,7 +8,27 @@ namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class ProxyNode : TextNode
     {
-        public BaseNode Original { get; set; }
+        private BaseNode original;
+        public BaseNode Original
+        {
+            get => original;
+            set
+            {
+                if (original == value)
+                {
+                    return;
+                }
+
+                original = value;
+                if (original != null)
+                {
+                    if (Text == null)
+                    {
+                        Text = GetNodeText(original);
+                    }
+                }
+            }
+        }
 
         public SearchResult SearchResult { get; set; }
 
@@ -26,28 +47,48 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
-        public static string GetNodeText(BaseNode node)
+        public static string GetNodeText(BaseNode node, bool includeType = true)
         {
-            if (node is Target t)
+            if (node == null)
             {
-                return t.Name;
-            }
-            else if (node is Project project)
-            {
-                return $"{project.Name} {project.AdornmentString} {project.TargetsDisplayText}";
-            }
-            else if (node is ProjectEvaluation evaluation)
-            {
-                return $"{evaluation.Name} {evaluation.EvaluationText}";
+                return null;
             }
 
-            return node.ToString();
+            if (node is NamedNode namedNode)
+            {
+                if (node is Project project)
+                {
+                    return $"{project.Name} {project.AdornmentString} {project.TargetsDisplayText}";
+                }
+                else if (node is ProjectEvaluation evaluation)
+                {
+                    return $"{evaluation.Name} {evaluation.AdornmentString} {evaluation.EvaluationText}";
+                }
+
+                string text = namedNode.Name;
+
+                if (node is not Folder and not Item && includeType && node.GetType() != typeof(TimedNode))
+                {
+                    text = $"{node.TypeName} {text}";
+                }
+
+                return text;
+            }
+            else if (node is TextNode textNode)
+            {
+                return textNode.Text;
+            }
+
+            return node.Title;
         }
 
         public void Populate(SearchResult result)
         {
+            var highlights = this.highlights;
+
             if (result == null)
             {
+                highlights.Add(Text);
                 return;
             }
 
@@ -57,10 +98,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 if (result.MatchedByType)
                 {
-                    Highlights.Add(new HighlightedText { Text = OriginalType });
+                    highlights.Add(new HighlightedText { Text = OriginalType });
                 }
 
-                Highlights.Add((Highlights.Count > 0 ? " " : "") + TextUtilities.ShortenValue(GetNodeText(node), "..."));
+                highlights.Add((highlights.Count > 0 ? " " : "") + TextUtilities.ShortenValue(GetNodeText(node, includeType: false), "..."));
 
                 AddDuration(result);
 
@@ -68,9 +109,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
 
             string typePrefix = OriginalType;
-            if (typePrefix != Strings.Folder)
+            bool addedTypePrefix = false;
+            if (typePrefix != Strings.Folder &&
+                typePrefix != Strings.Item &&
+                typePrefix != Strings.Metadata &&
+                typePrefix != Strings.Property &&
+                typePrefix != "Package")
             {
-                Highlights.Add(typePrefix);
+                highlights.Add(typePrefix);
+                addedTypePrefix = true;
             }
 
             // NameValueNode is special case: have to show name=value when searched only in one (name or value)
@@ -106,74 +153,111 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             if (namedNode != null && !namedNodeNameFound)
             {
-                Highlights.Add((Highlights.Count > 0 ? " " : "") + namedNode.Name);
+                highlights.Add((highlights.Count > 0 ? " " : "") + namedNode.Name);
                 if (GetNodeDifferentiator(node) is object differentiator)
                 {
-                    Highlights.Add(differentiator);
+                    highlights.Add(differentiator);
                 }
             }
 
-            foreach (var wordsInField in result.WordsInFields.GroupBy(t => t.field, t => t.match))
+            IEnumerable<(string Key, IEnumerable<string> Occurrences)> fieldsWithMatches = null;
+            if (result.FieldsToDisplay != null)
+            {
+                fieldsWithMatches = result.FieldsToDisplay.Select(f =>
+                {
+                    List<string> matches = null;
+
+                    foreach (var kvp in result.WordsInFields)
+                    {
+                        if (kvp.field == f)
+                        {
+                            matches ??= new();
+                            matches.Add(kvp.match);
+                        }
+                    }
+
+                    return (f, (IEnumerable<string>)matches);
+                }).ToArray();
+            }
+            else
+            {
+                fieldsWithMatches = result.WordsInFields
+                    .GroupBy(t => t.field, t => t.match)
+                    .Select(g => (g.Key, (IEnumerable<string>)g))
+                    .ToArray();
+            }
+
+            foreach (var wordsInField in fieldsWithMatches)
             {
                 var fieldText = wordsInField.Key;
-                if (fieldText == OriginalType || (node is Task task && task.IsDerivedTask))
+                if (fieldText == typePrefix && addedTypePrefix)
                 {
-                    // OriginalType already added above
+                    // already added above
                     continue;
                 }
 
-                if (Highlights.Count > 0)
+                if (highlights.Count > 0)
                 {
-                    Highlights.Add(" ");
+                    highlights.Add(" ");
                 }
 
                 if (nameValueNode != null && fieldText.Equals(nameValueNode.Value) && !nameFound)
                 {
-                    Highlights.Add(nameValueNode.Name + " = ");
+                    highlights.Add(nameValueNode.Name + " = ");
                 }
 
                 fieldText = TextUtilities.ShortenValue(fieldText, "...");
 
-                var highlightSpans = TextUtilities.GetHighlightedSpansInText(fieldText, wordsInField);
+                var highlightSpans = TextUtilities.GetHighlightedSpansInText(fieldText, wordsInField.Occurrences);
                 int index = 0;
                 foreach (var span in highlightSpans)
                 {
                     if (span.Start > index)
                     {
-                        Highlights.Add(fieldText.Substring(index, span.Start - index));
+                        highlights.Add(fieldText.Substring(index, span.Start - index));
                     }
 
-                    Highlights.Add(new HighlightedText { Text = fieldText.Substring(span.Start, span.Length) });
+                    highlights.Add(new HighlightedText { Text = fieldText.Substring(span.Start, span.Length) });
                     index = span.End;
                 }
 
                 if (index < fieldText.Length)
                 {
-                    Highlights.Add(fieldText.Substring(index, fieldText.Length - index));
+                    highlights.Add(fieldText.Substring(index, fieldText.Length - index));
                 }
 
-                if (nameValueNode != null && wordsInField.Key.Equals(nameValueNode.Name))
+                if (nameValueNode != null && fieldText.Equals(nameValueNode.Name))
                 {
                     if (!valueFound)
                     {
-                        Highlights.Add(" = " + TextUtilities.ShortenValue(nameValueNode.Value, "..."));
+                        highlights.Add(" = " + TextUtilities.ShortenValue(nameValueNode.Value, "..."));
                     }
                     else
                     {
-                        Highlights.Add(" = ");
+                        highlights.Add(" = ");
                     }
                 }
 
-                if (namedNode != null && namedNode.Name == wordsInField.Key)
+                if (namedNode != null && namedNode.Name == fieldText)
                 {
                     if (GetNodeDifferentiator(node) is object differentiator)
                     {
-                        Highlights.Add(differentiator);
+                        highlights.Add(differentiator);
                     }
                 }
             }
 
             AddDuration(result);
+
+            if (highlights.Count == 0)
+            {
+                if (Original is Target or Task or AddItem or RemoveItem)
+                {
+                    highlights.Add(OriginalType + " ");
+                }
+
+                highlights.Add(Title);
+            }
         }
 
         private object GetNodeDifferentiator(BaseNode node)
@@ -228,7 +312,12 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     return nameof(Task);
                 }
 
-                return Original.GetType().Name;
+                if (Original == null)
+                {
+                    return "Folder";
+                }
+
+                return Original.TypeName ?? Original.GetType().Name;
             }
         }
 

@@ -1,21 +1,20 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia;
-using Microsoft.Build.Logging.StructuredLogger;
-using StructuredLogViewer.Avalonia.Controls;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using System.Linq;
-using Avalonia.Controls.Presenters;
-using System.Threading.Tasks;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using Microsoft.Build.Logging.StructuredLogger;
+using StructuredLogViewer.Avalonia.Controls;
 using Task = System.Threading.Tasks.Task;
-using System.Collections;
 
 namespace StructuredLogViewer.Avalonia
 {
@@ -334,6 +333,10 @@ namespace StructuredLogViewer.Avalonia
                 await QueueAnalyzeBuild(build);
             }
 
+            progress.ProgressText = "Reading embedded files...";
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded); // let the progress message be rendered before we block the UI again
+            _ = build.SourceFiles;
+
             progress.ProgressText = "Rendering tree...";
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded); // let the progress message be rendered before we block the UI again
 
@@ -484,7 +487,7 @@ namespace StructuredLogViewer.Avalonia
                 }
 
                 logFilePath = result;
-                System.Threading.Tasks.Task.Run(() =>
+                await System.Threading.Tasks.Task.Run(() =>
                 {
                     Serialization.Write(currentBuild.Build, logFilePath);
                     Dispatcher.UIThread.InvokeAsync(() =>
@@ -528,7 +531,7 @@ namespace StructuredLogViewer.Avalonia
             }
             else if (e.Key == Key.S && e.KeyModifiers.HasFlag(KeyModifiers.Control))
             {
-                var task = SaveAs();
+                _ = SaveAs();
             }
         }
 
@@ -600,7 +603,7 @@ namespace StructuredLogViewer.Avalonia
 
         private void SaveAs_Click(object sender, RoutedEventArgs e)
         {
-            var task = SaveAs();
+            _ = SaveAs();
         }
 
         private void HelpLink_Click(object sender, RoutedEventArgs e)

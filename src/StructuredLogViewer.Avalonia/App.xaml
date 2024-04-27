@@ -1,4 +1,4 @@
-﻿<Application xmlns="https://github.com/avaloniaui"
+<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:l="clr-namespace:Microsoft.Build.Logging.StructuredLogger;assembly=StructuredLogger"
              xmlns:common="clr-namespace:Microsoft.Build.Logging.StructuredLogger;assembly=StructuredLogViewer.Core"
@@ -191,11 +191,23 @@
                            Classes="nodeIcon"
                            Stroke="{StaticResource ItemStroke}"
                            Fill="{StaticResource ItemBrush}" />
-                <TextBlock Name="nameAndEquals"
-                           Classes="nodeBeforeText"
-                           Text="{Binding NameAndEquals}"
-                           Foreground="{Binding IsSelected, Converter={StaticResource LabelColorConverter}, ConverterParameter={x:Static Brushes.Green}}"/>
-                <TextBlock Text="{Binding ShortenedText}"
+                <TextBlock Text="{Binding ShortenedName}"
+                           Classes="nodeText" />
+            </StackPanel>
+        </TreeDataTemplate>
+
+        <TreeDataTemplate DataType="{x:Type l:Package}"
+                          ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal">
+                <Rectangle Name="icon"
+                           Classes="nodeIcon"
+                           Stroke="{StaticResource ItemStroke}"
+                           Fill="{StaticResource ItemBrush}" />
+                <TextBlock Text="{Binding ShortenedName}"
+                           Classes="nodeText" />
+                <TextBlock Text="{Binding Version}"
+                           Classes="nodeText" />
+                <TextBlock Text="{Binding VersionSpec}"
                            Classes="nodeText" />
             </StackPanel>
         </TreeDataTemplate>
@@ -298,7 +310,7 @@
                            Foreground="{Binding IsSelected, Converter={StaticResource LabelColorConverter}, ConverterParameter={StaticResource ImportStroke}}" />
                 <TextBlock x:Name="name"
                            Classes="nodeText"
-                           Text="{Binding Name}" />
+                           Text="{Binding Text}" />
                 <TextBlock x:Name="location"
                            Classes="nodeText"
                            Text="{Binding Location}" />
@@ -317,15 +329,15 @@
                            Classes="nodeBeforeText"
                            Text="NoImport "
                            Foreground="{Binding IsSelected, Converter={StaticResource LabelColorConverter}, ConverterParameter={StaticResource NoImportStroke}}" />
-                <TextBlock x:Name="name"
+                <TextBlock x:Name="text"
                            Classes="nodeText"
-                           Text="{Binding Name}" />
+                           Text="{Binding Text}" />
                 <TextBlock x:Name="location"
                            Classes="nodeText"
                            Text="{Binding Location}" />
                 <TextBlock x:Name="reason"
                            Classes="nodeText"
-                           Text="{Binding Text}" />
+                           Text="{Binding Reason}" />
             </StackPanel>
         </TreeDataTemplate>
 

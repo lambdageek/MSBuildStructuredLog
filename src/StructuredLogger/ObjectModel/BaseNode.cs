@@ -27,6 +27,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public virtual string TypeName => nameof(BaseNode);
 
+        public virtual string Title => ToString();
+
         /// <summary>
         /// Since there can only be 1 selected node at a time, don't waste an instance field
         /// just to store a bit. Store the currently selected node here and this way we save
@@ -70,6 +72,19 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             get => HasFlag(NodeFlags.ContainsSearchResult);
             set => SetFlag(NodeFlags.ContainsSearchResult, value);
+        }
+
+        public void ResetSearchResultStatus()
+        {
+            NodeFlags searchFlags = NodeFlags.SearchResult | NodeFlags.ContainsSearchResult;
+            if ((flags & searchFlags) == 0)
+            {
+                return;
+            }
+
+            flags = flags & ~searchFlags;
+            RaisePropertyChanged(nameof(IsSearchResult));
+            RaisePropertyChanged(nameof(ContainsSearchResult));
         }
 
         private protected bool HasFlag(NodeFlags flag) => (flags & flag) == flag;

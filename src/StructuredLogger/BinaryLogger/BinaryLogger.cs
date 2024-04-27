@@ -59,7 +59,29 @@ namespace Microsoft.Build.Logging.StructuredLogger
         //   - new record kind: FileUsedEventArgs
         // version 16:
         //   - AssemblyLoadBuildEventArgs
-        internal const int FileFormatVersion = 16;
+        // version 17:
+        //   - Added extended data for types implementing IExtendedBuildEventArgs
+        // version 18:
+        //   - Making ProjectStartedEventArgs, ProjectEvaluationFinishedEventArgs, AssemblyLoadBuildEventArgs equal
+        //     between de/serialization roundtrips.
+        //   - Adding serialized events lengths - to support forward compatible reading
+        // version 19:
+        //   - GeneratedFileUsedEventArgs exposed for brief period of time (so let's continue with 20)
+        // version 20:
+        //   - TaskStartedEventArgs: Added TaskAssemblyLocation property
+
+        // This should be never changed.
+        // The minimum version of the binary log reader that can read log of above version.
+        internal const int ForwardCompatibilityMinimalVersion = 18;
+
+        // The current version of the binary log representation.
+        // Changes with each update of the binary log format.
+        internal const int FileFormatVersion = 20;
+        // The minimum version of the binary log reader that can read log of above version.
+        // This should be changed only when the binary log format is changed in a way that would prevent it from being
+        // read by older readers. (changing of the individual BuildEventArgs or adding new is fine - as reader can
+        // skip them if they are not known to it. Example of change requiring the increment would be the introduction of strings deduplication)
+        internal const int MinimumReaderVersion = 18;
 
         public static bool IsNewerVersionAvailable { get; set; }
 
@@ -123,7 +145,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
             Environment.SetEnvironmentVariable("MSBUILDLOGIMPORTS", "1");
             bool logPropertiesAndItemsAfterEvaluation = true;
 
-            ProcessParameters();
+            ProcessParameters(out bool omitInitialInfo);
+            var replayEventsSource = eventSource as IBinaryLogReplaySource;
 
             try
             {
@@ -145,7 +168,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 stream = new FileStream(FilePath, FileMode.Create);
 
-                if (CollectProjectImports != ProjectImportsCollectionMode.None)
+                if (CollectProjectImports != ProjectImportsCollectionMode.None && replayEventsSource == null)
                 {
                     projectImportsCollector = new ProjectImportsCollector(FilePath, CollectProjectImports == ProjectImportsCollectionMode.ZipFile);
                 }
@@ -182,11 +205,55 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 eventArgsWriter.EmbedFile += EventArgsWriter_EmbedFile;
             }
 
-            binaryWriter.Write(FileFormatVersion);
+            if (replayEventsSource != null)
+            {
+                if (CollectProjectImports == ProjectImportsCollectionMode.Embed)
+                {
+                    replayEventsSource.EmbeddedContentRead += args =>
+                        eventArgsWriter.WriteBlob(args.ContentKind, args.ContentStream);
+                }
+                else if (CollectProjectImports == ProjectImportsCollectionMode.ZipFile)
+                {
+                    replayEventsSource.EmbeddedContentRead += args =>
+                        ProjectImportsCollector.FlushBlobToFile(FilePath, args.ContentStream);
+                }
 
-            LogInitialInfo();
+                // If raw events are provided - let's try to use the advantage.
+                // But other subscribers can later on subscribe to structured events -
+                //  for this reason we do only subscribe delayed.
+                replayEventsSource.DeferredInitialize(
+                    // For raw events we cannot write the initial info - as we cannot write
+                    //  at the same time as raw events are being written - this would break the deduplicated strings store.
+                    // But we need to write the version info - but since we read/write raw - let's not change the version info.
+                    () =>
+                    {
+                        binaryWriter.Write(replayEventsSource.FileFormatVersion);
+                        binaryWriter.Write(replayEventsSource.MinimumReaderVersion);
+                        replayEventsSource.RawLogRecordReceived += RawEvents_LogDataSliceReceived;
+                        // Replay separated strings here as well (and do not deduplicate! It would skew string indexes)
+                        replayEventsSource.StringReadDone += strArg => eventArgsWriter.WriteStringRecord(strArg.StringToBeUsed);
+                    },
+                    SubscribeToStructuredEvents);
+            }
+            else
+            {
+                SubscribeToStructuredEvents();
+            }
 
-            eventSource.AnyEventRaised += EventSource_AnyEventRaised;
+            void SubscribeToStructuredEvents()
+            {
+                // Write the version info - the latest version is written only for structured events replaying
+                //  as raw events do not change structure - hence the version is the same as the one they were written with.
+                binaryWriter.Write(FileFormatVersion);
+                binaryWriter.Write(MinimumReaderVersion);
+
+                if (!omitInitialInfo)
+                {
+                    LogInitialInfo();
+                }
+
+                eventSource.AnyEventRaised += EventSource_AnyEventRaised;
+            }
         }
 
         private void EventArgsWriter_EmbedFile(string filePath)
@@ -220,12 +287,17 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             if (projectImportsCollector != null)
             {
+                projectImportsCollector.Close();
+
                 if (CollectProjectImports == ProjectImportsCollectionMode.Embed)
                 {
-                    eventArgsWriter.WriteBlob(BinaryLogRecordKind.ProjectImportArchive, projectImportsCollector.GetAllBytes());
+                    projectImportsCollector.ProcessResult(
+                        streamToEmbed => eventArgsWriter.WriteBlob(BinaryLogRecordKind.ProjectImportArchive, streamToEmbed),
+                        LogMessage);
+
+                    projectImportsCollector.DeleteArchive();
                 }
 
-                projectImportsCollector.Close();
                 projectImportsCollector = null;
             }
 
@@ -238,6 +310,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 stream.Dispose();
                 stream = null;
             }
+        }
+
+        private void RawEvents_LogDataSliceReceived(BinaryLogRecordKind recordKind, Stream stream)
+        {
+            eventArgsWriter.WriteBlob(recordKind, stream);
         }
 
         private void EventSource_AnyEventRaised(object sender, BuildEventArgs e)
@@ -283,13 +360,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
         /// </summary>
         /// <exception cref="LoggerException">
         /// </exception>
-        private void ProcessParameters()
+        private void ProcessParameters(out bool omitInitialInfo)
         {
             if (Parameters == null)
             {
                 throw new LoggerException(ResourceUtilities.FormatResourceStringStripCodeAndKeyword("InvalidBinaryLoggerParameters", ""));
             }
 
+            omitInitialInfo = false;
             var parameters = Parameters.Split(MSBuildConstants.SemicolonChar, StringSplitOptions.RemoveEmptyEntries);
             foreach (var parameter in parameters)
             {
@@ -304,6 +382,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 else if (string.Equals(parameter, "ProjectImports=ZipFile", StringComparison.OrdinalIgnoreCase))
                 {
                     CollectProjectImports = ProjectImportsCollectionMode.ZipFile;
+                }
+                else if (string.Equals(parameter, "OmitInitialInfo", StringComparison.OrdinalIgnoreCase))
+                {
+                    omitInitialInfo = true;
                 }
                 else if (parameter.EndsWith(".binlog", StringComparison.OrdinalIgnoreCase))
                 {

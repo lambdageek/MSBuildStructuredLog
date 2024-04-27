@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Microsoft.Build.Logging.StructuredLogger;
 using TPLTask = System.Threading.Tasks.Task;
@@ -7,33 +9,55 @@ namespace StructuredLogViewer
 {
     public class Search
     {
-        public const int DefaultMaxResults = 1000;
+        public const int DefaultMaxResults = 300;
 
         private readonly IEnumerable<TreeNode> roots;
         private readonly IEnumerable<string> strings;
         private readonly int maxResults;
         private int resultCount;
         private bool markResultsInTree = false;
-        private readonly StringCache stringTable;
+        private readonly bool useMultithreading = PlatformUtilities.HasThreads;
 
-        public Search(IEnumerable<TreeNode> roots, IEnumerable<string> strings, int maxResults, bool markResultsInTree, StringCache stringTable = null)
+        public TimeSpan PrecalculationDuration;
+
+        public Search(IEnumerable<TreeNode> roots, IEnumerable<string> strings, int maxResults, bool markResultsInTree)
         {
             this.roots = roots;
             this.strings = strings;
             this.maxResults = maxResults;
             this.markResultsInTree = markResultsInTree;
-            this.stringTable = stringTable;
         }
 
         public IEnumerable<SearchResult> FindNodes(string query, CancellationToken cancellationToken)
         {
-            var matcher = new NodeQueryMatcher(query, strings, cancellationToken, stringTable);
-
             var resultSet = new List<SearchResult>();
+
+            var matcher = new NodeQueryMatcher(query);
+
+            if (roots.FirstOrDefault() is Build build)
+            {
+                foreach (var searchExtension in build.SearchExtensions)
+                {
+                    if (searchExtension.TryGetResults(matcher, resultSet, maxResults))
+                    {
+                        return resultSet;
+                    }
+                }
+            }
+
+            matcher.Initialize(strings, cancellationToken);
+
             foreach (var root in roots)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 Visit(root, matcher, resultSet, cancellationToken);
             }
+
+            PrecalculationDuration = matcher.PrecalculationDuration;
 
             return resultSet;
         }
@@ -47,8 +71,7 @@ namespace StructuredLogViewer
 
             build.VisitAllChildren<BaseNode>(node =>
             {
-                node.IsSearchResult = false;
-                node.ContainsSearchResult = false;
+                node.ResetSearchResultStatus();
             });
         }
 
@@ -56,6 +79,7 @@ namespace StructuredLogViewer
         {
             var isMatch = false;
             var containsMatch = false;
+            bool visitChildren = true;
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -64,12 +88,22 @@ namespace StructuredLogViewer
 
             if (resultCount < maxResults)
             {
-                var result = matcher.IsMatch(node);
+                var result = matcher?.IsMatch(node);
                 if (result != null)
                 {
-                    isMatch = true;
-                    lock (results)
+                    if (matcher.HasTimeIntervalConstraints && !matcher.IsTimeIntervalMatch(node))
                     {
+                        // if the current node is outside the requested time interval, only
+                        // visit the children if we mark results in the tree
+                        visitChildren = markResultsInTree;
+
+                        // ensure recursive calls don't bother matching, since we've failed the time
+                        // interval test. Only refresh the result marks.
+                        matcher = null;
+                    }
+                    else
+                    {
+                        isMatch = true;
                         results.Add(result);
                         resultCount++;
                     }
@@ -82,59 +116,36 @@ namespace StructuredLogViewer
                 return false;
             }
 
-            if (node is TreeNode treeNode && treeNode.HasChildren)
+            if (visitChildren && node is TreeNode treeNode && treeNode.HasChildren)
             {
                 var children = treeNode.Children;
-                if (node is Project)
+
+                bool parallelSearch = useMultithreading && node is Project;
+
+                if (parallelSearch)
                 {
-                    if (PlatformUtilities.HasThreads)
+                    var tasks = new System.Threading.Tasks.Task<List<SearchResult>>[children.Count];
+
+                    for (int i = 0; i < children.Count; i++)
                     {
-                        var tasks = new System.Threading.Tasks.Task<List<SearchResult>>[children.Count];
-
-                        for (int i = 0; i < children.Count; i++)
+                        var child = children[i];
+                        var task = TPLTask.Run(() =>
                         {
-                            var child = children[i];
-                            var task = TPLTask.Run(() =>
-                            {
-                                var list = new List<SearchResult>();
-                                Visit(child, matcher, list, cancellationToken);
-                                return list;
-                            });
-                            tasks[i] = task;
-                        }
-
-                        TPLTask.WaitAll(tasks);
-
-                        lock (results)
-                        {
-                            for (int i = 0; i < tasks.Length; i++)
-                            {
-                                var task = tasks[i];
-                                var subList = task.Result;
-                                results.AddRange(subList);
-                                containsMatch |= subList.Count > 0;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var searchResults = new List<SearchResult>[children.Count];
-                        for (int i = 0; i < children.Count; i++)
-                        {
-                            var child = children[i];
                             var list = new List<SearchResult>();
                             Visit(child, matcher, list, cancellationToken);
-                            searchResults[i] = list;
-                        }
-                        lock (results)
-                        {
-                            for (int i = 0; i < searchResults.Length; i++)
-                            {
-                                var subList = searchResults[i];
-                                results.AddRange(subList);
-                                containsMatch |= subList.Count > 0;
-                            }
-                        }
+                            return list;
+                        });
+                        tasks[i] = task;
+                    }
+
+                    TPLTask.WaitAll(tasks);
+
+                    for (int i = 0; i < tasks.Length; i++)
+                    {
+                        var task = tasks[i];
+                        var subList = task.Result;
+                        results.AddRange(subList);
+                        containsMatch |= subList.Count > 0;
                     }
                 }
                 else

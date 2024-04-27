@@ -287,6 +287,32 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public const int MaxDisplayedValueLength = 260;
         private const string TrimPrompt = "... (Space: view, Ctrl+C: copy)";
 
+        public static int GetShortenLength(string text, int maxChars = MaxDisplayedValueLength)
+        {
+            if (text == null)
+            {
+                return 0;
+            }
+
+            int lineBreak = text.IndexOfFirstLineBreak();
+            if (lineBreak != -1)
+            {
+                if (lineBreak < maxChars)
+                {
+                    return lineBreak;
+                }
+            }
+            else
+            {
+                if (text.Length <= maxChars)
+                {
+                    return text.Length;
+                }
+            }
+
+            return maxChars;
+        }
+
         public static string ShortenValue(string text, string trimPrompt = TrimPrompt, int maxChars = MaxDisplayedValueLength)
         {
             if (text == null)
@@ -294,31 +320,21 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 return text;
             }
 
-            int newLength = maxChars;
-            int lineBreak = text.IndexOfFirstLineBreak();
-            if (lineBreak == -1)
+            int newLength = GetShortenLength(text, maxChars);
+
+            if (text.Length != newLength)
             {
-                if (text.Length <= newLength)
+                var shortText = text.Substring(0, newLength);
+
+                if (newLength <= maxChars && IsWhitespace(text, new Span(newLength, text.Length - newLength)))
                 {
-                    return text;
+                    return shortText + '\u21b5';
                 }
-            }
-            else
-            {
-                if (lineBreak < newLength)
-                {
-                    newLength = lineBreak;
-                }
+
+                return shortText + trimPrompt;
             }
 
-            var shortText = text.Substring(0, newLength);
-
-            if (lineBreak == newLength && IsWhitespace(text, new Span(newLength, text.Length - newLength)))
-            {
-                return shortText + '\u21b5';
-            }
-
-            return shortText + trimPrompt;
+            return text;
         }
 
         public static int IndexOfFirstLineBreak(this string text)
@@ -381,6 +397,38 @@ namespace Microsoft.Build.Logging.StructuredLogger
             var name = nameEqualsValue.Substring(0, equals);
             var value = nameEqualsValue.Substring(equals + 1);
             return new KeyValuePair<string, string>(name, value);
+        }
+
+        public static string GetFirstPart(this string text, char separator)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return text;
+            }
+
+            int index = text.IndexOf(separator);
+            if (index == -1)
+            {
+                return text;
+            }
+
+            return text.Substring(0, index);
+        }
+
+        public static (string first, string rest) GetFirstAndRest(this string text, char separator)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return (text, "");
+            }
+
+            int index = text.IndexOf(separator);
+            if (index == -1)
+            {
+                return (text, "");
+            }
+
+            return (text.Substring(0, index), text.Substring(index + 1, text.Length - index - 1));
         }
 
         public static int GetNumberOfLeadingSpaces(string line)
@@ -451,14 +499,17 @@ namespace Microsoft.Build.Logging.StructuredLogger
             {
                 return showZero ? "0 ms" : "";
             }
+
             if (span.TotalHours >= 1)
             {
                 return span.ToString();
             }
+
             if (span.TotalMinutes >= 1)
             {
                 return span.ToString(@"m\:ss\.fff");
             }
+
             if (span.TotalSeconds >= 1)
             {
                 return span.ToString(@"s\.fff") + " s";
@@ -511,8 +562,102 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return sb.ToString();
         }
 
+        public static string NormalizeFilePath(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            int slashCount = text.Count(c => c == '/');
+            int backslashCount = text.Count(c => c == '\\');
+
+            if (slashCount == 0 && backslashCount == 0)
+            {
+                return text;
+            }
+
+            bool isWindows = false;
+
+            if (text.Length > 1 && text[1] == ':')
+            {
+                isWindows = true;
+            }
+            else
+            {
+                if (backslashCount > slashCount)
+                {
+                    isWindows = true;
+                }
+            }
+
+            bool startsWithTwoBackslashes = text.Length > 2 && text[0] == '\\' && text[1] == '\\';
+
+            // hack
+            // recognize paths such as \a\b\c as /a/b/c since that's what the binary logger gives us
+            if (slashCount == 0 && text.Length > 1 && text[0] == '\\' && text[1] != '\\' && text[1] != '/')
+            {
+                isWindows = false;
+            }
+
+            string directorySeparator;
+            string altDirectorySeparator;
+            if (isWindows)
+            {
+                directorySeparator = "\\";
+                altDirectorySeparator = "/";
+            }
+            else
+            {
+                directorySeparator = "/";
+                altDirectorySeparator = "\\";
+            }
+
+            text = text.Replace(altDirectorySeparator, directorySeparator);
+
+            var parts = text.Split(new[] { directorySeparator[0] }, StringSplitOptions.RemoveEmptyEntries);
+
+            var stack = new List<string>();
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string part = parts[i];
+                if (stack.Count > 0 && parts[i] == "..")
+                {
+                    stack.RemoveAt(stack.Count - 1);
+                }
+                else
+                {
+                    stack.Add(part);
+                }
+            }
+
+            text = string.Join(directorySeparator, stack);
+
+            if (!isWindows)
+            {
+                text = '/' + text;
+            }
+            else if (text.Length > 1 && text[1] != ':')
+            {
+                text = "\\" + text;
+            }
+
+            if (isWindows && startsWithTwoBackslashes)
+            {
+                text = "\\" + text;
+            }
+
+            return text;
+        }
+
         public static IReadOnlyList<Span> GetHighlightedSpansInText(string text, IEnumerable<string> searchTerms)
         {
+            if (searchTerms == null || !searchTerms.Any())
+            {
+                return Array.Empty<Span>();
+            }
+
             var spans = new List<Span>();
 
             foreach (var searchTerm in searchTerms)

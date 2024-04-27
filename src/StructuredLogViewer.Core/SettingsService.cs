@@ -104,6 +104,12 @@ namespace StructuredLogViewer
             SaveText(recentProjectsFilePath, Enumerable.Empty<string>());
         }
 
+        public static void RemoveAllRecentSearchText(string recentItemsCategory = "")
+        {
+            var file = GetRecentSearchFilePath(recentItemsCategory);
+            SaveText(file, Enumerable.Empty<string>());
+        }
+
         private static string GetRecentSearchFilePath(string category = "")
         {
             return recentSearchesFilePath.Replace("$", category);
@@ -299,57 +305,45 @@ namespace StructuredLogViewer
             }
         }
 
+        private static T Get<T>(ref T backingField)
+        {
+            EnsureSettingsRead();
+            return backingField;
+        }
+
+        private static void Set<T>(ref T backingField, T value)
+        {
+            if (backingField == null && value == null
+                || (backingField?.Equals(value) ?? false))
+            {
+                return;
+            }
+
+            backingField = value;
+            SaveSettings();
+        }
+
         private static bool enableTreeViewVirtualization = true;
 
         public static bool EnableTreeViewVirtualization
         {
-            get
-            {
-                EnsureSettingsRead();
-                return enableTreeViewVirtualization;
-            }
+            get => Get(ref enableTreeViewVirtualization);
 
-            set
-            {
-                if (enableTreeViewVirtualization == value)
-                {
-                    return;
-                }
-
-                enableTreeViewVirtualization = value;
-                SaveSettings();
-            }
+            set => Set(ref enableTreeViewVirtualization, value);
         }
 
         private static bool markResultsInTree = false;
 
         public static bool MarkResultsInTree
         {
-            get
-            {
-                EnsureSettingsRead();
-                return markResultsInTree;
-            }
+            get => Get(ref markResultsInTree);
 
-            set
-            {
-                if (markResultsInTree == value)
-                {
-                    return;
-                }
-
-                markResultsInTree = value;
-                SaveSettings();
-            }
+            set => Set(ref markResultsInTree, value);
         }
 
         public static bool ShowConfigurationAndPlatform
         {
-            get
-            {
-                EnsureSettingsRead();
-                return ProjectOrEvaluationHelper.ShowConfigurationAndPlatform;
-            }
+            get => Get(ref ProjectOrEvaluationHelper.ShowConfigurationAndPlatform);
 
             set
             {
@@ -365,25 +359,27 @@ namespace StructuredLogViewer
         }
 
         private static bool useDarkTheme = false;
-
         public static bool UseDarkTheme
         {
-            get
-            {
-                EnsureSettingsRead();
-                return useDarkTheme;
-            }
+            get => Get(ref useDarkTheme);
 
-            set
-            {
-                if (useDarkTheme == value)
-                {
-                    return;
-                }
+            set => Set(ref useDarkTheme, value);
+        }
 
-                useDarkTheme = value;
-                SaveSettings();
-            }
+        private static string? windowPosition;
+        public static string? WindowPosition
+        {
+            get => Get(ref windowPosition);
+
+            set => Set(ref windowPosition, value);
+        }
+
+        private static string? ignoreEmbeddedFiles;
+        public static string? IgnoreEmbeddedFiles
+        {
+            get => Get(ref ignoreEmbeddedFiles);
+
+            set => Set(ref ignoreEmbeddedFiles, value);
         }
 
         private static void EnsureSettingsRead()
@@ -399,6 +395,8 @@ namespace StructuredLogViewer
         const string MarkResultsInTreeSetting = "MarkResultsInTree=";
         const string ShowConfigurationAndPlatformSetting = "ShowConfigurationAndPlatform=";
         const string UseDarkThemeSetting = "UseDarkTheme=";
+        const string WindowPositionSetting = "WindowPosition=";
+        const string IgnoreEmbeddedFilesSetting = "IgnoreEmbeddedFiles=";
 
         private static void SaveSettings()
         {
@@ -408,6 +406,8 @@ namespace StructuredLogViewer
             sb.AppendLine(MarkResultsInTreeSetting + markResultsInTree.ToString());
             sb.AppendLine(ShowConfigurationAndPlatformSetting + ShowConfigurationAndPlatform.ToString());
             sb.AppendLine(UseDarkThemeSetting + useDarkTheme.ToString());
+            sb.AppendLine(WindowPositionSetting + windowPosition);
+            sb.AppendLine(IgnoreEmbeddedFilesSetting + IgnoreEmbeddedFiles);
 
             using (SingleGlobalInstance.Acquire(Path.GetFileName(settingsFilePath)))
             {
@@ -434,6 +434,19 @@ namespace StructuredLogViewer
                     ProcessLine(MarkResultsInTreeSetting, line, ref markResultsInTree);
                     ProcessLine(ShowConfigurationAndPlatformSetting, line, ref ProjectOrEvaluationHelper.ShowConfigurationAndPlatform);
                     ProcessLine(UseDarkThemeSetting, line, ref useDarkTheme);
+                    ProcessString(WindowPositionSetting, line, ref windowPosition);
+                    ProcessString(IgnoreEmbeddedFilesSetting, line, ref ignoreEmbeddedFiles);
+
+                    void ProcessString(string setting, string text, ref string? variable)
+                    {
+                        if (!text.StartsWith(setting))
+                        {
+                            return;
+                        }
+
+                        var value = text.Substring(setting.Length);
+                        variable = value;
+                    }
 
                     void ProcessLine(string setting, string text, ref bool variable)
                     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Logging.StructuredLogger;
-using Bucket = System.Collections.Generic.HashSet<StructuredLogViewer.ProjectImport>;
+using Bucket = System.Collections.Generic.List<StructuredLogViewer.ProjectImport>;
 
 namespace StructuredLogViewer
 {
@@ -32,7 +32,8 @@ namespace StructuredLogViewer
                 return;
             }
 
-            foreach (var projectEvaluation in evaluation.Children.OfType<ProjectEvaluation>())
+            var allEvaluations = evaluation.Children.OfType<ProjectEvaluation>().ToArray();
+            foreach (var projectEvaluation in allEvaluations)
             {
                 var imports = projectEvaluation.FindChild<NamedNode>(Strings.Imports);
                 if (imports == null)
@@ -42,24 +43,23 @@ namespace StructuredLogViewer
 
                 // under which circumstances can this happen?
                 // https://github.com/KirillOsenkov/MSBuildStructuredLog/issues/274
-                if (projectEvaluation.ProjectFile == null)
+                if (string.IsNullOrEmpty(projectEvaluation.ProjectFile))
                 {
                     continue;
                 }
 
-                imports.VisitAllChildren<Import>(import => VisitImport(import, projectEvaluation));
+                string evaluationKey = GetEvaluationKey(projectEvaluation);
+                var importMap = GetOrCreateImportMap(evaluationKey, projectEvaluation.ProjectFile);
+                build.RunInBackground(() =>
+                {
+                    imports.VisitAllChildren<Import>(import => VisitImport(import, importMap));
+                });
             }
         }
 
-        private void VisitImport(Import import, ProjectEvaluation projectEvaluation)
+        private void VisitImport(Import import, Dictionary<string, Bucket> importMap)
         {
-            if (sourceFileResolver.HasFile(import.ProjectFilePath) &&
-                sourceFileResolver.HasFile(import.ImportedProjectFilePath) &&
-                !string.IsNullOrEmpty(projectEvaluation.ProjectFile))
-            {
-                var importMap = GetOrCreateImportMap(GetEvaluationKey(projectEvaluation), import.ProjectFilePath);
-                AddImport(importMap, import.ProjectFilePath, import.ImportedProjectFilePath, import.Line, import.Column);
-            }
+            AddImport(importMap, import.ProjectFilePath, import.ImportedProjectFilePath, import.Line, import.Column);
         }
 
         public static string GetEvaluationKey(ProjectEvaluation evaluation) => evaluation == null ? null : evaluation.ProjectFile + evaluation.Id.ToString();
@@ -81,19 +81,22 @@ namespace StructuredLogViewer
 
         private Dictionary<string, Bucket> GetOrCreateImportMap(string key, string projectFilePath)
         {
-            if (!importMapsPerEvaluation.TryGetValue(key, out var importMap))
+            lock (importMapsPerEvaluation)
             {
-                importMap = new Dictionary<string, Bucket>(StringComparer.OrdinalIgnoreCase);
-                importMapsPerEvaluation[key] = importMap;
+                if (!importMapsPerEvaluation.TryGetValue(key, out var importMap))
+                {
+                    importMap = new Dictionary<string, Bucket>(StringComparer.OrdinalIgnoreCase);
+                    importMapsPerEvaluation[key] = importMap;
 
-                // we want to have a "default" import map for each project, without specifying an evaluation id
-                // this is when we click on a project and want to preprocess (we currently don't know which
-                // evaluation id is associated with this project).
-                // TODO: improve this when https://github.com/dotnet/msbuild/issues/4926 is fixed.
-                importMapsPerEvaluation[projectFilePath] = importMap;
+                    // we want to have a "default" import map for each project, without specifying an evaluation id
+                    // this is when we click on a project and want to preprocess (we currently don't know which
+                    // evaluation id is associated with this project).
+                    // TODO: improve this when https://github.com/dotnet/msbuild/issues/4926 is fixed.
+                    importMapsPerEvaluation[projectFilePath] = importMap;
+                }
+
+                return importMap;
             }
-
-            return importMap;
         }
 
         private Dictionary<string, Bucket> GetImportMap(string projectEvaluationKey)
@@ -136,13 +139,20 @@ namespace StructuredLogViewer
                 line--;
             }
 
-            if (!importMap.TryGetValue(project, out var bucket))
+            Bucket bucket;
+            lock (importMap)
             {
-                bucket = new Bucket();
-                importMap[project] = bucket;
+                if (!importMap.TryGetValue(project, out bucket))
+                {
+                    bucket = new Bucket();
+                    importMap[project] = bucket;
+                }
             }
 
-            bucket.Add(new ProjectImport(importedProject, line, column));
+            lock (bucket)
+            {
+                bucket.Add(new ProjectImport(importedProject, line, column));
+            }
         }
 
         public Action GetPreprocessAction(string sourceFilePath, string preprocessEvaluationContext)
@@ -164,6 +174,10 @@ namespace StructuredLogViewer
             }
 
             var sourceText = sourceFileResolver.GetSourceFileText(sourceFilePath);
+            if (sourceText == null)
+            {
+                return string.Empty;
+            }
 
             var importMap = GetImportMap(projectEvaluationContext);
             if (importMap == null)

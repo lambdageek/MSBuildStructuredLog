@@ -19,7 +19,7 @@
 	"author": "Aleksey Kliger",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.81.0"
+		"vscode": "^1.88.0"
 	},
 	"readme": "README.md",
 	"repository": {
@@ -136,23 +136,23 @@
 		"gen:example": "npx shx rm -f example/*.binlog && dotnet msbuild -bl:example/example.binlog example/example.proj"
 	},
 	"dependencies": {
-		"@streamparser/json": "^0.0.16",
-		"@vscode/codicons": "^0.0.33",
+		"@streamparser/json": "^0.0.20",
+		"@vscode/codicons": "^0.0.35",
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
 	},
 	"devDependencies": {
-		"@types/node": "^20.5.0",
-		"@types/vscode": "^1.81.0",
-		"@types/vscode-webview": "^1.57.1",
-		"@typescript-eslint/eslint-plugin": "^6.4.0",
-		"@vscode/test-web": "^0.0.44",
-		"@vscode/vsce": "^2.20.1",
+		"@types/node": "^20.12.7",
+		"@types/vscode": "^1.88.0",
+		"@types/vscode-webview": "^1.57.5",
+		"@typescript-eslint/eslint-plugin": "^6.21.0",
+		"@vscode/test-web": "^0.0.54",
+		"@vscode/vsce": "^2.26.0",
 		"esbuild": "^0.18.20",
-		"eslint": "^8.47.0",
-		"glob": "^10.3.3",
+		"eslint": "^8.57.0",
+		"glob": "^10.3.12",
 		"npx": "^10.2.2",
-		"serve": "^14.2.0",
+		"serve": "^14.2.3",
 		"shx": "^0.3.4",
-		"typescript": "^5.1.6"
+		"typescript": "^5.4.5"
 	}
 }

@@ -15,6 +15,7 @@ using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 using ICSharpCode.AvalonEdit.Search;
+using Microsoft.Build.Logging.StructuredLogger;
 using Microsoft.Win32;
 
 namespace StructuredLogViewer.Controls
@@ -111,13 +112,15 @@ namespace StructuredLogViewer.Controls
             DisplaySource(lineNumber, column);
 
             if (IsXml)
+            {
                 ImportLinkHighlighter.Install(textEditor, sourceFilePath, navigationHelper);
+            }
         }
 
         protected override void OnKeyUp(KeyEventArgs e)
         {
             // Mark Ctrl+F handle to not steal focus from search panel
-            if (e.Key == Key.F  && Keyboard.Modifiers == ModifierKeys.Control)
+            if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 e.Handled = true;
             }
@@ -154,6 +157,12 @@ namespace StructuredLogViewer.Controls
                     textEditor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
                 }
 
+                return;
+            }
+
+            if (TryParseCondition(text, out string newText))
+            {
+                textEditor.Text = newText;
                 return;
             }
 
@@ -203,6 +212,8 @@ namespace StructuredLogViewer.Controls
 
                 var foldingStrategy = new XmlFoldingStrategy();
                 foldingStrategy.UpdateFoldings(foldingManager, textEditor.Document);
+
+                gotoProjectMenu.Visibility = Visibility.Visible;
             }
             else if (!looksLikeXml && IsXml)
             {
@@ -210,6 +221,68 @@ namespace StructuredLogViewer.Controls
 
                 textEditor.SyntaxHighlighting = null;
             }
+        }
+
+        private bool TryParseCondition(string text, out string newText)
+        {
+            Match matches = Strings.TargetSkippedFalseConditionRegex.Match(text);
+            if (!matches.Success)
+            {
+                matches = Strings.TaskSkippedFalseConditionRegex.Match(text);
+            }
+
+            if (matches.Success)
+            {
+                string unevaluated = matches.Groups[2].Value;
+                string evaluated = matches.Groups[3].Value;
+
+                try
+                {
+                    var nodeResult = ConditionNode.ParseAndProcess(unevaluated, evaluated);
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendLine(text);
+
+                    bool firstPrint = true;
+
+                    Action<ConditionNode> nodeFormat = null;
+
+                    nodeFormat = (ConditionNode node) =>
+                    {
+                        if (node.Result)
+                        {
+                            // sb.Append('\u2714'); // check mark
+                            return;
+                        }
+
+                        if (!string.IsNullOrEmpty(node.Text))
+                        {
+                            if (firstPrint)
+                            {
+                                sb.AppendLine();
+                                sb.AppendLine("Condition Analyzer:");
+                                firstPrint = false;
+                            }
+
+                            sb.Append("\u274C "); // X marker
+                            sb.AppendLine(node.Text);
+                        }
+
+                        foreach (var child in node.Children)
+                        {
+                            nodeFormat(child);
+                        }
+                    };
+
+                    nodeFormat(nodeResult);
+
+                    newText = sb.ToString();
+                    return true;
+                }
+                catch { }
+            }
+
+            newText = null;
+            return false;
         }
 
         public void SetPathDisplay(bool displayPath)
@@ -259,7 +332,7 @@ async
                 Title = "Save file as...",
                 FileName = Path.GetFileName(filePath)
             };
-            
+
             var result = saveFileDialog.ShowDialog(Application.Current.MainWindow);
 
             if (result is true)
@@ -311,6 +384,22 @@ async
         private void copyMenu_Click(object sender, RoutedEventArgs e)
         {
             textEditor.Copy();
+        }
+
+        private void gotoProjectFoldingMenu_Click(object sender, RoutedEventArgs e)
+        {
+            var selectionStart = textEditor.SelectionStart;
+            if (selectionStart > 0)
+            {
+                selectionStart--;
+            }
+
+            var projFolding = foldingManager.GetFoldingsContaining(selectionStart)?.LastOrDefault(f => f.Title == "<Project>");
+            if (projFolding != null)
+            {
+                textEditor.Select(projFolding.StartOffset, projFolding.Title.Length);
+                textEditor.ScrollTo(textEditor.Document.GetLineByOffset(projFolding.StartOffset).LineNumber, 0);
+            }
         }
     }
 }

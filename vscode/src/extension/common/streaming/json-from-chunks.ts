@@ -7,6 +7,8 @@ import { callbackWritableStream } from './callback-writable-stream';
 function jsonTransformer(): TransformStream<Uint8Array, ParsedElementInfo.ParsedElementInfo> {
     var parser = new JSONParser({
         separator: '', /* don't end the stream after the first toplevel object */
+        emitPartialTokens: false,
+        emitPartialValues: false,
     });
     let controller: TransformStreamDefaultController<ParsedElementInfo.ParsedElementInfo> = null as any;
     parser.onValue = (value => controller.enqueue(value)); // FIXME: clone?
@@ -28,6 +30,10 @@ function jsonTransformer(): TransformStream<Uint8Array, ParsedElementInfo.Parsed
 export function jsonFromChunks(onJson: (value: JsonTypes.JsonPrimitive | JsonTypes.JsonStruct) => any): ByteChunkListener {
     const [chunkListener, inputStream] = makeByteChunkStream();
     inputStream.pipeThrough(jsonTransformer()).pipeTo(callbackWritableStream((parsedElementInfo) => {
+        if (parsedElementInfo.partial)
+            return;
+        if (parsedElementInfo.value === undefined)
+            return;
         if (parsedElementInfo.stack.length > 0 || parsedElementInfo.parent !== undefined)
             return;
         onJson(parsedElementInfo.value);

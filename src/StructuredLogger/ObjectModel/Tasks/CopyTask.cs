@@ -6,7 +6,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class CopyTask : Task
     {
-        public override string TypeName => nameof(CopyTask);
+        //public override string TypeName => nameof(CopyTask);
 
         private IEnumerable<FileCopyOperation> fileCopyOperations;
         public IEnumerable<FileCopyOperation> FileCopyOperations => fileCopyOperations ??= GetFileCopyOperations();
@@ -29,6 +29,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }
@@ -37,6 +38,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match, copied: false);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }
@@ -45,6 +47,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 if (match.Success && match.Groups.Count > 2)
                 {
                     var operation = ParseCopyingFileFrom(match);
+                    operation.Message = message;
                     list.Add(operation);
                     continue;
                 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,10 +8,17 @@ namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class BinlogStats
     {
+        private static bool TrackStrings = true;
+        private static bool Sort = true;
+
         public static BinlogStats Calculate(string binlogFilePath)
         {
             var stats = new BinlogStats();
             stats.FileSize = new FileInfo(binlogFilePath).Length;
+
+            bool expensive = stats.FileSize > 20_000_000;
+            TrackStrings = !expensive;
+            Sort = !expensive;
 
             var reader = new BinLogReader();
             reader.OnBlobRead += (kind, bytes) => stats.OnBlobRead(kind, bytes);
@@ -54,21 +61,27 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         private void OnStringRead(string text, long lengthInBytes)
         {
-            AllStrings.Add(text);
+            if (TrackStrings)
+            {
+                AllStrings.Add(text);
+            }
 
             int length = (int)lengthInBytes;
 
             UncompressedStreamSize += lengthInBytes;
 
-            if (StringSizes.Count <= length)
+            if (TrackStrings)
             {
-                for (int i = StringSizes.Count; i <= length; i++)
+                if (StringSizes.Count <= length)
                 {
-                    StringSizes.Add(0);
+                    for (int i = StringSizes.Count; i <= length; i++)
+                    {
+                        StringSizes.Add(0);
+                    }
                 }
-            }
 
-            StringSizes[length] += 1;
+                StringSizes[length] += 1;
+            }
 
             StringCount += 1;
             StringTotalSize += length;
@@ -133,28 +146,31 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             public virtual void Seal()
             {
-                list.Sort((l, r) =>
+                if (Sort)
                 {
-                    if (l == null || r == null)
+                    list.Sort((l, r) =>
                     {
+                        if (l == null || r == null)
+                        {
+                            return 0;
+                        }
+
+                        if (r.Args is BuildMessageEventArgs rightMessageArgs &&
+                            l.Args is BuildMessageEventArgs leftMessageArgs &&
+                            rightMessageArgs.Message is string rightMessage &&
+                            leftMessageArgs.Message is string leftMessage)
+                        {
+                            return Math.Sign(rightMessage.Length - leftMessage.Length);
+                        }
+
+                        if (r.Length != l.Length)
+                        {
+                            return Math.Sign(r.Length - l.Length);
+                        }
+
                         return 0;
-                    }
-
-                    if (r.Args is BuildMessageEventArgs rightMessageArgs &&
-                        l.Args is BuildMessageEventArgs leftMessageArgs &&
-                        rightMessageArgs.Message is string rightMessage &&
-                        leftMessageArgs.Message is string leftMessage)
-                    {
-                        return Math.Sign(rightMessage.Length - leftMessage.Length);
-                    }
-
-                    if (r.Length != l.Length)
-                    {
-                        return Math.Sign(r.Length - l.Length);
-                    }
-
-                    return 0;
-                });
+                    });
+                }
 
                 foreach (var type in recordsByType)
                 {

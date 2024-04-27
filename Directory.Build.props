@@ -8,6 +8,9 @@
     <BaseOutputPath>$(MSBuildThisFileDirectory)bin\$(MSBuildProjectName)\</BaseOutputPath>
     <BuildToCommonOutputDirectory>true</BuildToCommonOutputDirectory>
     <_FindDependencies>false</_FindDependencies>
+    <!--https://github.com/dotnet/sdk/issues/37027-->
+    <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
+    <GenerateAssemblyInformationalVersionAttribute>false</GenerateAssemblyInformationalVersionAttribute>
   </PropertyGroup>
 
   <PropertyGroup Label="Common Properties">
@@ -20,7 +23,7 @@
     <NoWarn>$(NoWarn);NU1701;CS8632</NoWarn>
 
     <MSBuildPackageVersion>17.5.0</MSBuildPackageVersion>
-    <NuGetVersionNerdbankGitVersioning>3.5.107</NuGetVersionNerdbankGitVersioning>
+    <NuGetVersionNerdbankGitVersioning>3.6.133</NuGetVersionNerdbankGitVersioning>
   </PropertyGroup>
 
 </Project>

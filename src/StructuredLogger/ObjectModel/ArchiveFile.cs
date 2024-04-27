@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
 
 namespace Microsoft.Build.Logging.StructuredLogger
@@ -15,8 +15,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public string Text { get; }
 
         public static ArchiveFile From(ZipArchiveEntry entry)
+            => From(entry, adjustPath: true);
+
+        public static ArchiveFile From(ZipArchiveEntry entry, bool adjustPath)
         {
-            var filePath = CalculateArchivePath(entry.FullName);
+            var filePath = adjustPath ? CalculateArchivePath(entry.FullName) : entry.FullName;
             var text = GetText(entry);
             var file = new ArchiveFile(filePath, text);
             return file;
@@ -36,17 +39,12 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             string archivePath = filePath;
 
-            if (filePath.Contains(":") || (!filePath.StartsWith("\\") && !filePath.StartsWith("/")))
+            if (archivePath.Length > 1 && archivePath[1] == '\\' && archivePath[0] != '\\' && archivePath[0] != '/')
             {
-                archivePath = archivePath.Replace(":", "");
-                archivePath = archivePath.Replace("/", "\\");
-                archivePath = archivePath.Replace("\\\\", "\\");
+                archivePath = archivePath[0] + ":" + archivePath.Substring(1);
             }
-            else
-            {
-                archivePath = archivePath.Replace("\\", "/");
-                archivePath = archivePath.Replace("//", "/");
-            }
+
+            archivePath = TextUtilities.NormalizeFilePath(archivePath);
 
             return archivePath;
         }
