@@ -2,7 +2,7 @@
 	"name": "msbuild-structured-log-viewer",
 	"private": "true",
 	"publisher": "lambdageek",
-  "version": "0.0.6",
+  "version": "0.0.7",
 	"displayName": "Experimental: MS Build Structured Log Viewer",
   "description": "MS Build Structured Log Viewer displays the contens of MSBuild binary log files (.binlog) in a tree view",
 	"categories": [
