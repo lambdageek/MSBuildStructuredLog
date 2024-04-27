@@ -4,6 +4,7 @@ src/
 script/
 node_modules/
 .vscode-test-web/
+.vscode/
 .vscodeignore
 .gitignore
 *~
