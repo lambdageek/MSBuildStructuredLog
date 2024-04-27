@@ -2,7 +2,13 @@
 
 ## vNext
 
+-
+
+## v0.0.6
+
 - de-emphasize low relevance nodes such as skipped targets
+- merge upstream changes; fix support for .NET 8 binlogs
+- update dependencies
 
 ## v0.0.5
 
