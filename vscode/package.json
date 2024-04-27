@@ -19,7 +19,7 @@
 	"author": "Aleksey Kliger",
 	"license": "MIT",
 	"engines": {
-		"vscode": "^1.81.0"
+		"vscode": "^1.88.0"
 	},
 	"readme": "README.md",
 	"repository": {
@@ -141,10 +141,10 @@
 		"@vscode/wasm-wasi": "^0.13.0-pre.1"
 	},
 	"devDependencies": {
-		"@types/node": "^20.5.0",
-		"@types/vscode": "^1.81.0",
-		"@types/vscode-webview": "^1.57.1",
-		"@typescript-eslint/eslint-plugin": "^6.4.0",
+		"@types/node": "^20.12.7",
+		"@types/vscode": "^1.88.0",
+		"@types/vscode-webview": "^1.57.5",
+		"@typescript-eslint/eslint-plugin": "^6.21.0",
 		"@vscode/test-web": "^0.0.54",
 		"@vscode/vsce": "^2.26.0",
 		"esbuild": "^0.18.20",
