@@ -92,11 +92,13 @@ internal class Sender
     public void SendReady()
     {
         JsonSerializer.Serialize(stream, ReadyMessage.Default, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 
     public void SendDone()
     {
         JsonSerializer.Serialize(stream, DoneMessage.Default, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 
     public void SendNode(NodeMessage message)
@@ -105,25 +107,10 @@ internal class Sender
         stream.Flush();
     }
 
-    private void BigMessage(ReadOnlySpan<byte> bs)
-    {
-        int offset = 0;
-        //HACK: vscode-wasi can't handle more than 16kB writes at once to a pipe or character device
-        while (offset < bs.Length)
-        {
-            var span = bs.Slice(offset, Math.Min(bs.Length - offset, 16384));
-            stream.Write(span);
-            offset += span.Length;
-        }
-        stream.Flush();
-    }
-
     public void SendNodes(ManyNodesMessage message)
     {
-        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
-        var bs = System.Text.Encoding.UTF8.GetBytes(s);
-        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
-        BigMessage(bs);
+        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 
     public void SendFullText(FullTextMessage message)
@@ -134,10 +121,8 @@ internal class Sender
 
     public void SendSearchResults(SearchResultsMessage message)
     {
-        var s = JsonSerializer.Serialize(message, MessageSerializerContext.Default.Message);
-        var bs = System.Text.Encoding.UTF8.GetBytes(s);
-        Console.Error.WriteLine($"Sending a response of length: {bs.Length}");
-        BigMessage(bs);
+        JsonSerializer.Serialize(stream, message, MessageSerializerContext.Default.Message);
+        stream.Flush();
     }
 
     public void SendNodeAncestors(NodeAncestorsMessage message)
