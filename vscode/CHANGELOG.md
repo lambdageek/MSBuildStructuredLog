@@ -4,6 +4,11 @@
 
 -
 
+## v0.0.7
+
+- Update dependencies
+- Use .NET 8 for wasi and desktop versions
+
 ## v0.0.6
 
 - de-emphasize low relevance nodes such as skipped targets

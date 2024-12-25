@@ -146,7 +146,7 @@
 		"@types/vscode-webview": "^1.57.5",
 		"@typescript-eslint/eslint-plugin": "^6.21.0",
 		"@vscode/test-web": "^0.0.65",
-		"@vscode/vsce": "^2.26.0",
+		"@vscode/vsce": "^3.2.1",
 		"esbuild": "^0.18.20",
 		"eslint": "^8.57.0",
 		"glob": "^11.0.0",
