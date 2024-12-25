@@ -3,14 +3,15 @@
     <OutputType>Exe</OutputType>
     <WasmSingleFileBundle>true</WasmSingleFileBundle>
     <RootNamespace>StructuredLogViewer.Vscode.Engine</RootNamespace>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'wasi-wasm'">
       <PublishTrimmed >true</PublishTrimmed>
-      <TargetFramework>net8.0</TargetFramework>
+      <SelfContained>true</SelfContained>
+      <UseAppHost>true</UseAppHost>
   </PropertyGroup>
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != 'wasi-wasm'">
-      <TargetFramework>net7.0</TargetFramework>
       <SelfContained>false</SelfContained>
       <UseAppHost>false</UseAppHost>
   </PropertyGroup>
