@@ -1,4 +1,4 @@
-<Window x:Class="StructuredLogViewer.MainWindow"
+﻿<Window x:Class="StructuredLogViewer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:StructuredLogViewer"
@@ -15,7 +15,8 @@
     <DockPanel.LayoutTransform>
       <ScaleTransform x:Name="scaleTransform" CenterX="0" CenterY="0" ScaleX="1" ScaleY="1" />
     </DockPanel.LayoutTransform>
-    <Menu x:Name="mainMenu" DockPanel.Dock="Top">
+    <Grid DockPanel.Dock="Top">
+    <Menu x:Name="mainMenu">
       <MenuItem Header="_File">
         <MenuItem Header="Start Page" Click="StartPage_Click" />
         <Separator />
@@ -39,12 +40,35 @@
         <MenuItem Header="E_xit" Click="Exit_Click" InputGestureText="Alt+F4" />
       </MenuItem>
       <MenuItem Header="_Help">
+        <MenuItem Header="Search Syntax" Click="HelpLink3_Click" />
         <MenuItem Header="https://github.com/KirillOsenkov/MSBuildStructuredLog" Click="HelpLink_Click" />
         <MenuItem Header="https://msbuildlog.com" Click="HelpLink2_Click" />
         <Separator />
         <MenuItem Header="About" Click="HelpAbout_Click" />
       </MenuItem>
     </Menu>
+    <StackPanel x:Name="exceptionPanel"
+        Orientation="Horizontal"
+        Visibility="Hidden"
+        Background="Yellow"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Top">
+    <TextBlock x:Name="exceptionText"
+        Padding="8,2,8,2"
+        MouseDown="ExceptionText_MouseDown"
+        VerticalAlignment="Center"
+        Foreground="Black"
+        ToolTip="Click to show the exception log"
+        >Exception:</TextBlock>
+      <Button x:Name="closeExceptionButton"
+          Click="CloseException_Click"
+          BorderThickness="0"
+          TextBlock.Foreground="Black"
+          Background="Transparent"
+          MinWidth="16"
+          MinHeight="16">⨯</Button>
+    </StackPanel>
+    </Grid>
     <Grid>
       <ContentPresenter x:Name="mainContent" Margin="7"/>
     </Grid>

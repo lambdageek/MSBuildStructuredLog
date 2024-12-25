@@ -19,7 +19,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public IList<ISearchExtension> SearchExtensions { get; } = new List<ISearchExtension>();
 
         public bool IsAnalyzed { get; set; }
-        public bool Succeeded { get; set; }
+        public bool Succeeded { get; set; } = true;
         public Error FirstError { get; set; }
 
         public string LogFilePath { get; set; }
@@ -196,6 +196,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public BuildStatistics Statistics { get; set; } = new BuildStatistics();
 
         public FileCopyMap FileCopyMap { get; set; }
+        public ProjectReferenceGraph ProjectReferenceGraph { get; set; }
 
         public Dictionary<string, HashSet<string>> TaskAssemblies { get; } = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -251,7 +252,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 }
 
                 // the evaluation we want is likely to be at the end (recently added)
-                projectEvaluation = evaluation.FindLastChild<ProjectEvaluation>(e => e.Id == id);
+                projectEvaluation = evaluation.FindLastChild<ProjectEvaluation, int>(static (e, id) => e.Id == id, id);
                 if (projectEvaluation != null)
                 {
                     evaluationById[id] = projectEvaluation;

@@ -18,6 +18,7 @@ namespace BinlogTool
     binlogtool listtools input.binlog
     binlogtool savefiles input.binlog output_path
     binlogtool listnuget input.binlog output_path
+    binlogtool listproperties input.binlog
     binlogtool reconstruct input.binlog output_path
     binlogtool savestrings input.binlog output.txt
     binlogtool search *.binlog search string
@@ -71,6 +72,34 @@ namespace BinlogTool
                 var outputFile = args[2];
 
                 new SaveStrings().Run(binlog, outputFile);
+                return 0;
+            }
+
+            if (args.Length == 2 && string.Equals(firstArg, "listProperties", StringComparison.OrdinalIgnoreCase))
+            {
+                var binlog = args[1];
+                new ListProperties().Run(binlog);
+                return 0;
+            }
+
+            if (string.Equals(firstArg, "compilerinvocations", StringComparison.OrdinalIgnoreCase))
+            {
+                string binlog = null;
+                string outputFile = null;
+                if (args.Length >= 2)
+                {
+                    binlog = args[1];
+                }
+                else if (args.Length == 3)
+                {
+                    outputFile = args[2];
+                }
+
+                if (File.Exists(binlog))
+                {
+                    new CompilerInvocations().Run(binlog, outputFile);
+                }
+
                 return 0;
             }
 

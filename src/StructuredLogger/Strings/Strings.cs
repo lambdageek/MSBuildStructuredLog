@@ -13,13 +13,13 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         public static void Initialize(string culture = "en-US")
         {
-            if (!StringsSet.ResourcesCollection.ContainsKey(culture))
-            {
-                culture = "en-US";
-            }
-
             lock (locker)
             {
+                if (!StringsSet.ResourcesCollection.ContainsKey(culture))
+                {
+                    culture = "en-US";
+                }
+
                 if (ResourceSet == null || ResourceSet.Culture != culture)
                 {
                     ResourceSet = new StringsSet(culture);
@@ -58,7 +58,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             SkipTargetBecauseOutputsUpToDateRegex = CreateRegex(GetString("SkipTargetBecauseOutputsUpToDate"), 1);
             RemovingProjectProperties = CreateRegex(GetString("General.ProjectUndefineProperties"), 1);
 
-            DuplicateImport = CreateRegex(GetString("SearchPathsForMSBuildExtensionsPath"), 3);
+            DuplicateImport = CreateRegex(GetString("DuplicateImport").Replace("{2}", ""), 3);
 
             SearchPathsForMSBuildExtensionsPath = CreateRegex(GetString("SearchPathsForMSBuildExtensionsPath"), 2);
 
@@ -618,6 +618,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public static string Environment => "Environment";
         public static string TruncatedEnvironment => "Starting with MSBuild 17.4, only some environment variables are included in the log: the ones read during the build and the ones prefixed with MSBUILD, DOTNET_ or COMPLUS_.\nDefine MSBUILDLOGALLENVIRONMENTVARIABLES to log all environment variables during the build.";
         public static string Imports => "Imports";
+        public static string Messages => "Messages";
         public static string DetailedSummary => "Detailed summary";
         public static string Parameters => "Parameters";
         public static string Results => "Results";

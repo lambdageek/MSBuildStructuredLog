@@ -20,7 +20,7 @@ namespace StructuredLogViewer
 
         public static Term Get(string input)
         {
-            var trimmed = input.Trim('"');
+            var trimmed = input.TrimQuotes();
             if (trimmed == input)
             {
                 return new Term(input);
@@ -106,10 +106,12 @@ namespace StructuredLogViewer
         public bool IncludeStart { get; set; }
         public bool IncludeEnd { get; set; }
         public TimeSpan PrecalculationDuration { get; set; }
-        public bool UnderProject { get; set; } = false;
+        public bool IsProjectMatcher { get; set; } = false;
 
         public int NameTermIndex { get; set; } = -1;
         public int ValueTermIndex { get; set; } = -1;
+        public bool? Skipped { get; set; }
+        public int Height { get; set; } = -1;
 
         public DateTime StartBefore { get; set; }
         public DateTime StartAfter { get; set; }
@@ -119,6 +121,7 @@ namespace StructuredLogViewer
 
         public IList<NodeQueryMatcher> IncludeMatchers { get; } = new List<NodeQueryMatcher>();
         public IList<NodeQueryMatcher> ExcludeMatchers { get; } = new List<NodeQueryMatcher>();
+        public IList<NodeQueryMatcher> NotMatchers { get; } = new List<NodeQueryMatcher>();
         public IList<NodeQueryMatcher> ProjectMatchers { get; } = new List<NodeQueryMatcher>();
 
         // avoid allocating this for every node
@@ -225,13 +228,21 @@ namespace StructuredLogViewer
                     continue;
                 }
 
+                if (word.StartsWith("not(", StringComparison.OrdinalIgnoreCase) && word.EndsWith(")"))
+                {
+                    word = word.Substring(4, word.Length - 5);
+                    Terms.RemoveAt(termIndex);
+                    var notMatcher = new NodeQueryMatcher(word);
+                    NotMatchers.Add(notMatcher);
+                }
+
                 if (word.StartsWith("project(", StringComparison.OrdinalIgnoreCase) && word.EndsWith(")"))
                 {
                     word = word.Substring(8, word.Length - 9);
                     Terms.RemoveAt(termIndex);
 
                     var underMatcher = new NodeQueryMatcher(word);
-                    underMatcher.UnderProject = true;
+                    underMatcher.IsProjectMatcher = true;
                     IncludeMatchers.Add(underMatcher);
                     ProjectMatchers.Add(underMatcher);
                     continue;
@@ -322,6 +333,36 @@ namespace StructuredLogViewer
 
                     continue;
                 }
+
+                if (word.StartsWith("skipped=", StringComparison.OrdinalIgnoreCase) && word.Length > 8)
+                {
+                    word = word.Substring(8, word.Length - 8);
+                    Terms.RemoveAt(termIndex);
+                    if (string.Equals("true", word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Skipped = true;
+                    }
+                    else if (string.Equals("false", word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Skipped = false;
+                    }
+
+                    continue;
+                }
+
+                if (word.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && word.Length > 7)
+                {
+                    word = word.Substring(7, word.Length - 7);
+                    Terms.RemoveAt(termIndex);
+                    if (string.Equals("max", word, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Height = int.MaxValue;
+                    }
+                    else if (int.TryParse(word, out int height))
+                    {
+                        Height = height;
+                    }
+                }
             }
         }
 
@@ -349,6 +390,9 @@ namespace StructuredLogViewer
             query = query.Replace("end > ", "end>");
             query = query.Replace("end >", "end>");
             query = query.Replace("end> ", "end>");
+            query = query.Replace("name =", "name=");
+            query = query.Replace("value =", "value=");
+            query = query.Replace("skipped =", "skipped=");
 
             return query;
         }
@@ -533,10 +577,10 @@ namespace StructuredLogViewer
                 }
                 else if (node is Import import)
                 {
-                    if (!string.IsNullOrEmpty(import.ProjectFilePath))
-                    {
-                        searchFields[count++] = import.ProjectFilePath;
-                    }
+                    //if (!string.IsNullOrEmpty(import.ProjectFilePath))
+                    //{
+                    //    searchFields[count++] = import.ProjectFilePath;
+                    //}
 
                     if (!string.IsNullOrEmpty(import.ImportedProjectFilePath))
                     {
@@ -545,10 +589,10 @@ namespace StructuredLogViewer
                 }
                 else if (node is NoImport noImport)
                 {
-                    if (!string.IsNullOrEmpty(noImport.ProjectFilePath))
-                    {
-                        searchFields[count++] = noImport.ProjectFilePath;
-                    }
+                    //if (!string.IsNullOrEmpty(noImport.ProjectFilePath))
+                    //{
+                    //    searchFields[count++] = noImport.ProjectFilePath;
+                    //}
 
                     if (!string.IsNullOrEmpty(noImport.ImportedFileSpec))
                     {
@@ -718,6 +762,23 @@ namespace StructuredLogViewer
                 }
             }
 
+            foreach (NodeQueryMatcher matcher in NotMatchers)
+            {
+                var notMatch = matcher.IsMatch(node);
+                if (notMatch != null)
+                {
+                    return null;
+                }
+            }
+
+            if (Skipped != null && node is Target target)
+            {
+                if (target.Skipped != Skipped)
+                {
+                    return null;
+                }
+            }
+
             return result;
         }
 
@@ -777,9 +838,21 @@ namespace StructuredLogViewer
 
         public bool IsTimeIntervalMatch(BaseNode node)
         {
-            if (!HasTimeIntervalConstraints || node is not TimedNode timedNode)
+            if (!HasTimeIntervalConstraints)
             {
                 return true;
+            }
+
+            // Messages and Folders are not timed nodes, use the parent instead.
+            if (node is not TimedNode timedNode)
+            {
+                var parentNode = node.GetNearestParent<TimedNode>();
+                if (parentNode is null)
+                {
+                    return true;
+                }
+
+                timedNode = parentNode;
             }
 
             if (StartBefore != default && timedNode.StartTime > StartBefore)
@@ -807,7 +880,7 @@ namespace StructuredLogViewer
 
         public static bool IsUnder(NodeQueryMatcher matcher, BaseNode node)
         {
-            if (matcher.UnderProject)
+            if (matcher.IsProjectMatcher)
             {
                 var project = node.GetNearestParent<TimedNode>(p => p is Project or ProjectEvaluation);
                 if (project != null &&

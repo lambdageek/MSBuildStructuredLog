@@ -20,6 +20,7 @@ namespace TaskRunner
             }
 
             Assembly assembly = null;
+
             if (File.Exists(assemblyFilePath))
             {
                 assembly = Assembly.LoadFrom(assemblyFilePath);

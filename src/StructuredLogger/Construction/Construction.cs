@@ -8,6 +8,7 @@ using System.Linq;
 using Microsoft.Build.Collections;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Framework.Profiler;
+using StructuredLogger.BinaryLogger;
 
 namespace Microsoft.Build.Logging.StructuredLogger
 {
@@ -84,6 +85,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             Intern(nameof(Target));
             Intern(nameof(Task));
             Intern(nameof(TimedNode));
+            Intern(nameof(TimedMessage));
             Intern(nameof(Warning));
         }
 
@@ -113,6 +115,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 lock (syncLock)
                 {
                     Build.StartTime = args.Timestamp;
+
+                    // Since we saw BuildStarted we now need to see BuildFinished,
+                    // otherwise the build was cancelled or interrupted
+                    Build.Succeeded = false;
 
                     if (args.BuildEnvironment?.Count > 0)
                     {
@@ -365,7 +371,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             var project = GetProject(args.BuildEventContext.ProjectContextId);
             if (project != null && args.BuildEventContext.TargetId != BuildEventContext.InvalidTargetId)
             {
-                target = project.FindLastChild<Target>(t => t.Id == args.BuildEventContext.TargetId);
+                target = project.FindLastChild<Target, TargetSkippedEventArgs>(static (t, args) => t.Id == args.BuildEventContext.TargetId, args);
             }
 
             if (target == null)
@@ -416,6 +422,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 var messageNode = new Message { Text = messageText };
                 target.AddChild(messageNode);
             }
+
+            target.Skipped = true;
         }
 
         public void TaskStarted(object sender, TaskStartedEventArgs args)
@@ -521,7 +529,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         projectEvaluation.ProjectFile = projectFilePath;
 
                         projectEvaluation.Id = evaluationId;
-                        projectEvaluation.EvaluationText = Intern("id:" + evaluationId);
+                        projectEvaluation.EvaluationText = Intern($"id:{evaluationId}");
                         projectEvaluation.NodeId = e.BuildEventContext.NodeId;
                         projectEvaluation.StartTime = e.Timestamp;
                         projectEvaluation.EndTime = e.Timestamp;
@@ -532,7 +540,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         var projectFilePath = Intern(projectEvaluationFinished.ProjectFile);
                         var projectName = Intern(Path.GetFileName(projectFilePath));
                         var nodeName = Intern(GetEvaluationProjectName(evaluationId, projectName));
-                        var projectEvaluation = EvaluationFolder.FindLastChild<ProjectEvaluation>(e => e.Id == evaluationId);
+                        var projectEvaluation = EvaluationFolder.FindLastChild<ProjectEvaluation, int>(static (e, evaluationId) => e.Id == evaluationId, evaluationId);
                         if (projectEvaluation == null)
                         {
                             // no matching ProjectEvaluationStarted
@@ -581,6 +589,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
                             AddPropertiesSorted(propertiesFolder, projectEvaluation, projectEvaluationFinished.Properties);
                             AddItems(itemsNode, projectEvaluationFinished.Items);
                         }
+                    } 
+                    else if (e is BuildCanceledEventArgs buildCanceledEventArgs)
+                    {
+                        // If the build was canceled we want to show a message in the build log view.
+                        messageProcessor.Process(new BuildMessageEventArgs(
+                            Intern(buildCanceledEventArgs.Message),
+                            Intern(buildCanceledEventArgs.HelpKeyword),
+                            Intern(buildCanceledEventArgs.SenderName),
+                            MessageImportance.High,
+                            buildCanceledEventArgs.Timestamp));
                     }
                 }
             }
@@ -690,7 +708,20 @@ namespace Microsoft.Build.Logging.StructuredLogger
                         }
                     }
 
-                    parent = parent.GetOrCreateNodeWithName<Folder>(Strings.Warnings);
+                    if (args.HelpKeyword == "MSBuild.DuplicateImport")
+                    {
+                        var import = parent.FindFirstDescendant<Import>(i =>
+                            string.Equals(args.File, i.ImportedProjectFilePath, StringComparison.OrdinalIgnoreCase));
+                        if (import != null)
+                        {
+                            parent = import;
+                        }
+                    }
+
+                    if (parent is ProjectEvaluation)
+                    {
+                        parent = parent.GetOrCreateNodeWithName<Folder>(Strings.Warnings);
+                    }
 
                     Populate(warning, args, text);
 
@@ -713,7 +744,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 result = EvaluationFolder;
 
-                var projectEvaluation = result.FindChild<ProjectEvaluation>(p => p.Id == evaluationId);
+                var projectEvaluation = result.FindChild<ProjectEvaluation, int>(static (p, evaluationId) => p.Id == evaluationId, evaluationId);
                 if (projectEvaluation != null)
                 {
                     result = projectEvaluation;
@@ -1109,8 +1140,20 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 return;
             }
 
+            if (properties is IEnumerable<DictionaryEntry> entries)
+            {
+                properties = entries
+                    .Select(e => new KeyValuePair<string, string>(Convert.ToString(e.Key), Convert.ToString(e.Value)))
+                    .ToArray();
+            }
+
             var list = (ICollection<KeyValuePair<string, string>>)properties;
             int count = list.Count;
+            if (count == 0)
+            {
+                return;
+            }
+
             IEnumerable<KeyValuePair<string, string>> sorted = list;
 
             if (list is ArrayDictionary<string, string> arrayDictionary)

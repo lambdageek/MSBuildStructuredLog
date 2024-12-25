@@ -7,6 +7,8 @@ namespace Microsoft.Build.Logging.StructuredLogger
     {
         private static readonly string logFilePath = Path.Combine(PathUtils.RootPath, "LoggerExceptions.txt");
 
+        public static string LogFilePath => logFilePath;
+
         public static void ReportException(Exception ex)
         {
             if (ex == null)
@@ -24,7 +26,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                     File.Delete(logFilePath);
                 }
 
-                File.AppendAllText(logFilePath, ex.ToString());
+                File.AppendAllText(logFilePath, ex.ToString() + Environment.NewLine);
             }
             catch (Exception)
             {

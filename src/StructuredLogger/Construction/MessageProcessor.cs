@@ -174,6 +174,9 @@ namespace Microsoft.Build.Logging.StructuredLogger
         private void ProcessTaskParameter(TaskParameterEventArgs args)
         {
             string itemType = args.ItemType;
+            var (parameterName, propertyName) = args is TaskParameterEventArgs2 taskParameterEventArgs2
+                ? (taskParameterEventArgs2.ParameterName, taskParameterEventArgs2.PropertyName)
+                : (null, null);
             var items = args.Items;
             var kind = args.Kind;
 
@@ -189,11 +192,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 bool isOutput = kind == TaskParameterMessageKind.TaskOutput;
 
-                string folderName = isOutput ? Strings.OutputItems : Strings.Parameters;
+                string folderName = isOutput
+                    ? (propertyName is null ? Strings.OutputItems : Strings.OutputProperties)
+                    : Strings.Parameters;
                 parent = task.GetOrCreateNodeWithName<Folder>(folderName);
                 parent.DisableChildrenCache = true;
 
-                node = CreateParameterNode(itemType, items, isOutput);
+                string itemName = propertyName ?? itemType;
+
+                node = CreateParameterNode(itemName, items, isOutput, parameterName);
             }
             else if (
                 kind == TaskParameterMessageKind.AddItem ||
@@ -208,14 +215,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 {
                     named = new AddItem
                     {
-                        LineNumber = args.LineNumber
+                        LineNumber = (args as TaskParameterEventArgs2)?.LineNumber ?? args.LineNumber
                     };
                 }
                 else if (kind == TaskParameterMessageKind.RemoveItem)
                 {
                     named = new RemoveItem
                     {
-                        LineNumber = args.LineNumber
+                        LineNumber = (args as TaskParameterEventArgs2)?.LineNumber ?? args.LineNumber
                     };
                 }
                 else
@@ -245,26 +252,53 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
-        private BaseNode CreateParameterNode(string itemName, IEnumerable items, bool isOutput = false)
+        private BaseNode CreateParameterNode(string itemName, IEnumerable items, bool isOutput = false, string parameterName = null)
         {
             if (items is IList<ITaskItem> list && list.Count == 1 && list[0] is ITaskItem scalar && scalar.MetadataCount == 0)
             {
-                var property = new Property
+                BaseNode property;
+                if (parameterName != null && parameterName != itemName)
                 {
-                    Name = itemName,
-                    Value = scalar.ItemSpec
-                };
+                    property = new TaskParameterProperty
+                    {
+                        Name = itemName,
+                        Value = scalar.ItemSpec,
+                        ParameterName = parameterName
+                    };
+                }
+                else
+                {
+                    property = new Property
+                    {
+                        Name = itemName,
+                        Value = scalar.ItemSpec
+                    };
+                }
+
                 return property;
             }
 
             TreeNode parent;
             if (isOutput)
             {
-                parent = new AddItem { Name = itemName };
+                if (!string.IsNullOrEmpty(parameterName) && parameterName != itemName)
+                {
+                    parent = new TaskParameterItem { Name = itemName, ParameterName = parameterName };
+                }
+                else
+                {
+                    parent = new AddItem { Name = itemName };
+                }
             }
             else
             {
-                parent = new Parameter { Name = itemName };
+                // no need to display the same string twice
+                if (parameterName == itemName)
+                {
+                    parameterName = null;
+                }
+
+                parent = new Parameter { Name = itemName, ParameterName = parameterName };
                 parent.DisableChildrenCache = true;
             }
 
@@ -310,7 +344,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         private Task lastTask;
 
         private Task GetTask(BuildEventContext buildEventContext)
-        {
+         {
             if (buildEventContext.EqualTo(lastTaskBuildEventContext))
             {
                 return lastTask;
@@ -412,6 +446,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             TreeNode parent = null;
             BaseNode nodeToAdd = null;
             bool lowRelevance = false;
+            bool preserveTimestamp = false;
 
             var buildEventContext = args.BuildEventContext;
 
@@ -420,6 +455,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 parent = GetTask(args);
                 if (parent is Task task)
                 {
+                    string taskName = task.Name;
                     if (args is AssemblyLoadBuildEventArgs)
                     {
                         nodeToAdd = new Message() { Text = Intern(message), IsLowRelevance = lowRelevance };
@@ -431,14 +467,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
                             return;
                         }
                     }
-                    else if (string.Equals(task.Name, "MSBuild", StringComparison.OrdinalIgnoreCase))
+                    else if (string.Equals(taskName, "MSBuild", StringComparison.OrdinalIgnoreCase))
                     {
                         if (ProcessMSBuildTask(task, ref parent, ref nodeToAdd, message))
                         {
                             return;
                         }
                     }
-                    else if (string.Equals(task.Name, "RestoreTask", StringComparison.OrdinalIgnoreCase) ||
+                    else if (string.Equals(taskName, "RestoreTask", StringComparison.OrdinalIgnoreCase) ||
                         string.Equals(task.Name, "RestoreTaskEx", StringComparison.OrdinalIgnoreCase))
                     {
                         if (ProcessRestoreTask(task, ref parent, message))
@@ -446,12 +482,16 @@ namespace Microsoft.Build.Logging.StructuredLogger
                             return;
                         }
                     }
-                    else if (string.Equals(task.Name, "Mmp", StringComparison.OrdinalIgnoreCase))
+                    else if (string.Equals(taskName, "Mmp", StringComparison.OrdinalIgnoreCase))
                     {
                         if (ProcessMmp(task, ref parent, message))
                         {
                             return;
                         }
+                    }
+                    else if (!string.Equals(taskName, "Message", StringComparison.OrdinalIgnoreCase))
+                    {
+                        preserveTimestamp = true;
                     }
                 }
             }
@@ -635,15 +675,6 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                     nodeToAdd = critical;
                 }
-                else if (parent is Task task && task is CppAnalyzer.CppTask)
-                {
-                    nodeToAdd = new TimedMessage
-                    {
-                        Text = message,
-                        Timestamp = args.Timestamp,
-                        IsLowRelevance = lowRelevance
-                    };
-                }
                 else
                 {
                     Message messageNode = null;
@@ -665,6 +696,14 @@ namespace Microsoft.Build.Logging.StructuredLogger
                                 Line = buildMessageEventArgs.LineNumber
                             };
                         }
+                    }
+
+                    if (messageNode == null && preserveTimestamp)
+                    {
+                        messageNode = new TimedMessage
+                        {
+                            Timestamp = args.Timestamp
+                        };
                     }
 
                     if (messageNode == null)

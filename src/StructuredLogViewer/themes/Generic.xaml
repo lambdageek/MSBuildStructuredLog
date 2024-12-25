@@ -235,6 +235,10 @@
         <Setter TargetName="nameText" Property="Foreground" Value="Red" />
         <Setter TargetName="icon" Property="Fill" Value="{DynamicResource ErrorBrush}" />
       </DataTrigger>
+      <DataTrigger Binding="{Binding Name}" Value="Circular Project References">
+        <Setter TargetName="nameText" Property="Foreground" Value="Red" />
+        <Setter TargetName="icon" Property="Fill" Value="{DynamicResource ErrorBrush}" />
+      </DataTrigger>
       <DataTrigger Binding="{Binding Name}" Value="DoubleBuild">
         <Setter TargetName="nameText" Property="Foreground" Value="Red" />
         <Setter TargetName="icon" Property="Fill" Value="{DynamicResource ErrorBrush}" />
@@ -439,6 +443,28 @@
     </HierarchicalDataTemplate.Triggers>
   </HierarchicalDataTemplate>
 
+  <HierarchicalDataTemplate DataType="{x:Type l:TaskParameterItem}"
+                            ItemsSource="{Binding Children}">
+    <StackPanel Orientation="Horizontal">
+      <Path x:Name="icon"
+          Data="{DynamicResource AddItemGeometry}"
+          VerticalAlignment="Center"
+          Width="14"
+          Height="11"
+          Margin="3,3,6,3"
+          Stroke="{DynamicResource ItemStroke}"
+          Fill="{DynamicResource ItemBrush}" />
+      <TextBlock x:Name="label" Text="Add Item " />
+      <TextBlock Text="{Binding Name}" />
+      <TextBlock x:Name="parameterName" Text="{Binding ParameterName}" Foreground="Gray" Margin="16,0,0,0" />
+    </StackPanel>
+    <HierarchicalDataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsSelected}" Value="False">
+        <Setter TargetName="label" Property="Foreground" Value="{DynamicResource AddItemStroke}" />
+      </DataTrigger>
+    </HierarchicalDataTemplate.Triggers>
+  </HierarchicalDataTemplate>
+
   <HierarchicalDataTemplate DataType="{x:Type l:RemoveItem}"
                             ItemsSource="{Binding Children}">
     <StackPanel Orientation="Horizontal">
@@ -466,6 +492,34 @@
       <Rectangle x:Name="icon" Style="{StaticResource NodeIcon}" Stroke="{DynamicResource ItemStroke}" Fill="{DynamicResource ItemBrush}" />
       <TextBlock Text="{Binding ShortenedName}" />
     </StackPanel>
+  </HierarchicalDataTemplate>
+
+  <HierarchicalDataTemplate DataType="{x:Type l:FileCopy}"
+                            ItemsSource="{Binding Children}">
+    <StackPanel Orientation="Horizontal">
+      <Path x:Name="icon"
+            Data="M5,5 L5,11 L11,11 L11,5 Z M 0,8 L16,8"
+            Stroke="Thistle"
+            VerticalAlignment="Center"
+            StrokeThickness="1"
+            Width="16"
+            Height="16"
+            Margin="1,2,6,2"
+            Fill="Thistle" />
+      <TextBlock Text="{Binding ShortenedName}" />
+    </StackPanel>
+    <HierarchicalDataTemplate.Triggers>
+      <DataTrigger Binding="{Binding Kind}" Value="Source">
+        <Setter TargetName="icon" Property="Data" Value="M0,5 L0,11 L6,11 L6,5 Z M 6,8 L16,8" />
+        <Setter TargetName="icon" Property="Stroke" Value="LightSkyBlue" />
+        <Setter TargetName="icon" Property="Fill" Value="LightSkyBlue" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding Kind}" Value="Destination">
+        <Setter TargetName="icon" Property="Data" Value="M10,5 L10,11 L16,11 L16,5 Z M 0,8 L10,8" />
+        <Setter TargetName="icon" Property="Stroke" Value="DarkSalmon" />
+        <Setter TargetName="icon" Property="Fill" Value="DarkSalmon" />
+      </DataTrigger>
+    </HierarchicalDataTemplate.Triggers>
   </HierarchicalDataTemplate>
 
   <HierarchicalDataTemplate DataType="{x:Type l:Package}"
@@ -543,11 +597,26 @@
     </DataTemplate.Triggers>
   </DataTemplate>
 
+  <DataTemplate DataType="{x:Type l:TaskParameterProperty}">
+    <StackPanel Orientation="Horizontal">
+      <Rectangle x:Name="icon" Style="{StaticResource NodeIcon}" Stroke="{DynamicResource PropertyStroke}" Fill="{DynamicResource PropertyBrush}" />
+      <TextBlock x:Name="label" Text="{Binding NameAndEquals, Mode=OneTime}" />
+      <TextBlock Text="{Binding ShortenedValue}" />
+      <TextBlock x:Name="parameterName" Text="{Binding ParameterName}" Foreground="Gray" Margin="16,0,0,0" />
+    </StackPanel>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsSelected}" Value="False">
+        <Setter TargetName="label" Property="Foreground" Value="{DynamicResource PropertyStroke}" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
   <HierarchicalDataTemplate DataType="{x:Type l:Parameter}"
                             ItemsSource="{Binding Children}">
     <StackPanel Orientation="Horizontal">
       <Rectangle x:Name="icon" Style="{StaticResource NodeIcon}" Stroke="{DynamicResource ParameterStroke}" Fill="{DynamicResource ParameterBrush}" />
       <TextBlock x:Name="name" Text="{Binding Name}" />
+      <TextBlock x:Name="parameterName" Text="{Binding ParameterName}" Foreground="Gray" Margin="16,0,0,0" />
     </StackPanel>
     <HierarchicalDataTemplate.Triggers>
       <DataTrigger Binding="{Binding IsSelected}" Value="False">
@@ -560,6 +629,20 @@
                             ItemsSource="{Binding Children}">
     <StackPanel Orientation="Horizontal">
       <Rectangle x:Name="icon" Style="{StaticResource NodeIcon}" Stroke="{DynamicResource MessageStroke}" Fill="{DynamicResource MessageBrush}" />
+      <TextBlock x:Name="messageText" Text="{Binding ShortenedText}" />
+    </StackPanel>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsLowRelevance}" Value="True">
+        <Setter TargetName="messageText" Property="Opacity" Value="0.25" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </HierarchicalDataTemplate>
+
+  <HierarchicalDataTemplate DataType="{x:Type l:TimedMessage}"
+                            ItemsSource="{Binding Children}">
+    <StackPanel Orientation="Horizontal">
+      <Rectangle x:Name="icon" Style="{StaticResource NodeIcon}" Stroke="{DynamicResource MessageStroke}" Fill="{DynamicResource MessageBrush}" />
+      <TextBlock x:Name="timeStamp" Text="{Binding TimestampText}" Opacity="0.3" Margin="0,0,8,0" />
       <TextBlock x:Name="messageText" Text="{Binding ShortenedText}" />
     </StackPanel>
     <DataTemplate.Triggers>
@@ -692,7 +775,7 @@
 
   <HierarchicalDataTemplate DataType="{x:Type l:ProxyNode}"
                             ItemsSource="{Binding Children}">
-    <StackPanel Orientation="Horizontal">
+    <StackPanel Orientation="Horizontal" x:Name="stackPanel">
       <Path x:Name="icon"
           Data="F1M0,0L14,0L14,11L0,11Z"
           Width="14"
@@ -710,6 +793,9 @@
       </ItemsControl>
     </StackPanel>
     <HierarchicalDataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsLowRelevance}" Value="True">
+        <Setter TargetName="stackPanel" Property="Opacity" Value="0.25" />
+      </DataTrigger>
       <DataTrigger Binding="{Binding OriginalType}" Value="Folder">
         <Setter TargetName="icon" Property="Stroke" Value="{DynamicResource FolderStroke}" />
         <Setter TargetName="icon" Property="Fill" Value="{DynamicResource ClosedFolderBrush}" />

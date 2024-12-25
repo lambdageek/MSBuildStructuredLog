@@ -63,11 +63,19 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
         private void FileCopyMap_FoundSingleFileCopy(FileData fileData, IList<SearchResult> resultCollector)
         {
-            var fileCopyInfo = fileData.Incoming.FirstOrDefault() ?? fileData.Outgoing.FirstOrDefault();
+            var fileCopyInfo =
+                resultCollector.FirstOrDefault()?.AssociatedFileCopy ??
+                fileData.Incoming.FirstOrDefault() ??
+                fileData.Outgoing.FirstOrDefault();
+
             var project = fileCopyInfo.Project;
 
             var filePath = fileData.FilePath;
-            if (fileData.Incoming.Count == 1)
+            if (fileData.Incoming.Count > 0 &&
+                fileData.Incoming
+                    .Select(i => i.FileCopyOperation.Source)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count() == 1)
             {
                 filePath = fileCopyInfo.FileCopyOperation.Source;
             }
@@ -113,7 +121,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 return false;
             }
 
-            var underProjectMatcher = matcher.IncludeMatchers.FirstOrDefault(m => m.UnderProject);
+            var underProjectMatcher = matcher.ProjectMatchers.FirstOrDefault();
             if (underProjectMatcher == null || underProjectMatcher.Terms.Count == 0)
             {
                 resultCollector.Add(new SearchResult(new Error { Text = "Add a 'project(...)' clause to filter which project(s) to search." }));

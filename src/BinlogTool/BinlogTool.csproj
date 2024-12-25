@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <Version>1.0.15</Version>
-    <TargetFramework>net7.0</TargetFramework>
+    <Version>1.0.23</Version>
+    <TargetFramework>net8.0</TargetFramework>
     <RollForward>major</RollForward>
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>

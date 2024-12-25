@@ -11,6 +11,11 @@ namespace StructuredLogViewer
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         }
 
+        private static void CurrentDomain_FirstChanceException(object sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
+        {
+            ErrorReporting.ReportException(e.Exception);
+        }
+
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             ErrorReporting.ReportException(e.ExceptionObject as Exception);
@@ -36,7 +41,7 @@ namespace StructuredLogViewer
                 return Unwrap(ae.Flatten().InnerExceptions[0]);
             }
 
-            if (ex.InnerException != null)
+            if (ex?.InnerException != null)
             {
                 return Unwrap(ex.InnerException);
             }

@@ -2,23 +2,20 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using DotUtils.StreamUtils;
 using Microsoft.Build.BackEnd;
-using Microsoft.Build.Collections;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Framework.Profiler;
-using Microsoft.Build.Internal;
 using Microsoft.Build.Shared;
+using StructuredLogger.BinaryLogger;
 
 namespace Microsoft.Build.Logging.StructuredLogger
 {
@@ -255,9 +252,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 {
                     hasError = true;
 
+                    int localSerializedEventLength = serializedEventLength;
+                    Exception localException = e;
                     string ErrorFactory() =>
                         string.Format("BuildEvent record number {0} (serialized size: {1}) attempted to perform disallowed reads (details: {2}: {3}).",
-                            _recordNumber, serializedEventLength, e.GetType(), e.Message) + (_skipUnknownEvents
+                            _recordNumber, localSerializedEventLength, localException.GetType(), localException.Message) + (_skipUnknownEvents
                             ? " Skipping the record."
                             : string.Empty);
 
@@ -266,9 +265,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 if (result == null && !hasError)
                 {
+                    int localSerializedEventLength = serializedEventLength;
+                    BinaryLogRecordKind localRecordKind = recordKind;
                     string ErrorFactory() =>
                         string.Format("BuildEvent record number {0} (serialized size: {1}) is of unsupported type: {2}.",
-                            _recordNumber, serializedEventLength, recordKind) + (_skipUnknownEvents
+                            _recordNumber, localSerializedEventLength, localRecordKind) + (_skipUnknownEvents
                             ? " Skipping the record."
                             : string.Empty);
 
@@ -277,9 +278,10 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
                 if (_readStream.BytesCountAllowedToReadRemaining > 0)
                 {
+                    int localSerializedEventLength = serializedEventLength;
                     string ErrorFactory() => string.Format(
-                        "BuildEvent record number {0} was expected to read exactly {1} bytes from the stream, but read {2} instead.", _recordNumber, serializedEventLength,
-                        serializedEventLength - _readStream.BytesCountAllowedToReadRemaining);
+                        "BuildEvent record number {0} was expected to read exactly {1} bytes from the stream, but read {2} instead.", _recordNumber, localSerializedEventLength,
+                        localSerializedEventLength - _readStream.BytesCountAllowedToReadRemaining);
 
                     HandleError(ErrorFactory, _skipUnknownEventParts, ReaderErrorType.UnknownEventData, recordKind);
                 }
@@ -330,7 +332,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 BinaryLogRecordKind.UninitializedPropertyRead => ReadUninitializedPropertyReadEventArgs(),
                 BinaryLogRecordKind.PropertyInitialValueSet => ReadPropertyInitialValueSetEventArgs(),
                 BinaryLogRecordKind.AssemblyLoad => ReadAssemblyLoadEventArgs(),
-                _ => null
+                BinaryLogRecordKind.BuildCheckMessage => ReadBuildCheckMessageEventArgs(),
+                BinaryLogRecordKind.BuildCheckWarning => ReadBuildWarningEventArgs(),
+                BinaryLogRecordKind.BuildCheckError => ReadBuildErrorEventArgs(),
+                BinaryLogRecordKind.BuildCheckTracing => ReadBuildCheckTracingEventArgs(),
+                BinaryLogRecordKind.BuildCheckAcquisition => ReadBuildCheckAcquisitionEventArgs(),
+                BinaryLogRecordKind.BuildSubmissionStarted => ReadBuildSubmissionStartedEventArgs(),
+                BinaryLogRecordKind.BuildCanceled => ReadBuildCanceledEventArgs(),
+                _ => null,
+                
             };
 
         private void SkipBytes(int count)
@@ -702,6 +712,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             SetCommonFields(e, fields);
             return e;
         }
+        private BuildEventArgs ReadBuildCanceledEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var e = new BuildCanceledEventArgs(
+                fields.Message,
+                fields.Timestamp);
+            SetCommonFields(e, fields);
+            return e;
+        }
 
         private BuildEventArgs ReadProjectEvaluationStartedEventArgs()
         {
@@ -1062,6 +1081,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return e;
         }
 
+        private BuildEventArgs ReadBuildCheckMessageEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields();
+            var e = new BuildCheckResultMessage(fields.Message);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
         private BuildEventArgs ReadBuildMessageEventArgs()
         {
             var fields = ReadBuildEventArgsFields(readImportance: true);
@@ -1149,10 +1177,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             var kind = (TaskParameterMessageKind)ReadInt32();
             var itemType = ReadDeduplicatedString() ?? "N/A";
             var items = ReadTaskItemList() as IList ?? Array.Empty<ITaskItem>();
+            var (parameterName, propertyName) = _fileFormatVersion >= 21
+                ? (ReadDeduplicatedString(), ReadDeduplicatedString())
+                : (null, null);
 
             var e = ItemGroupLoggingHelper.CreateTaskParameterEventArgs(
                 fields.BuildEventContext,
                 kind,
+                parameterName,
+                propertyName,
                 itemType,
                 items,
                 logItemMetadata: true,
@@ -1218,13 +1251,65 @@ namespace Microsoft.Build.Logging.StructuredLogger
             var fields = ReadBuildEventArgsFields(readImportance: true);
 
             var environmentVariableName = ReadDeduplicatedString();
+            int line = 0;
+            int column = 0;
+            string? fileName = null;
+            if (_fileFormatVersion >= 22)
+            {
+                line = ReadInt32();
+                column = ReadInt32();
+                fileName = ReadDeduplicatedString();
+            }
 
-            var e = new EnvironmentVariableReadEventArgs(
-                environmentVariableName,
-                fields.Message,
-                fields.HelpKeyword,
-                fields.SenderName,
-                fields.Importance);
+            var e = new EnvironmentVariableReadEventArgs2(
+                    environmentVariableName ?? string.Empty,
+                    fields.Message,
+                    fileName ?? string.Empty,
+                    line,
+                    column);
+            SetCommonFields(e, fields);
+
+            return e;
+        }
+
+        private BuildEventArgs ReadBuildCheckTracingEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields(readImportance: true);
+            var rawTracingData = ReadStringDictionary() ?? new Dictionary<string, string>();
+
+            var e = new BuildCheckTracingEventArgs(rawTracingData.ToDictionary(
+                kvp => kvp.Key,
+                kvp => TimeSpan.FromTicks(long.Parse(kvp.Value))));
+            SetCommonFields(e, fields);
+            return e;
+        }
+
+        private BuildEventArgs ReadBuildCheckAcquisitionEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields(readImportance: false);
+            var acquisitionPath = ReadDeduplicatedString();
+            var projectPath = ReadDeduplicatedString();
+            var e = new BuildCheckAcquisitionEventArgs(acquisitionPath, projectPath);
+            SetCommonFields(e, fields);
+            return e;
+        }
+
+        private BuildEventArgs ReadBuildSubmissionStartedEventArgs()
+        {
+            var fields = ReadBuildEventArgsFields(readImportance: false);
+            var e = new BuildSubmissionStartedEventArgs();
+
+            var globalProperties = ReadStringDictionary();
+            var entries = ReadStringList();
+            var targetNames = ReadStringList();
+            var flags = (BuildRequestDataFlags)ReadInt32();
+            var submissionId = ReadInt32();
+
+            e.GlobalProperties = globalProperties;
+            e.EntryProjectsFullPath = entries;
+            e.TargetNames = targetNames;
+            e.SubmissionId = submissionId;
+
             SetCommonFields(e, fields);
 
             return e;
@@ -1546,7 +1631,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
-        private IEnumerable ReadPropertyList()
+        private IDictionary<string, string> ReadPropertyList()
         {
             var properties = ReadStringDictionary();
             return properties;
@@ -1596,7 +1681,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return record;
         }
 
-        private IDictionary<string, string> ReadLegacyStringDictionary()
+        private Dictionary<string, string> ReadLegacyStringDictionary()
         {
             int count = ReadInt32();
             if (count == 0)
@@ -1625,7 +1710,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return taskItem;
         }
 
-        private IEnumerable ReadProjectItems()
+        private IList<DictionaryEntry> ReadProjectItems()
         {
             IList<DictionaryEntry> list;
 
@@ -1707,7 +1792,20 @@ namespace Microsoft.Build.Logging.StructuredLogger
             return list;
         }
 
-        private IEnumerable ReadTaskItemList()
+        private string[] ReadStringList()
+        {
+            var count = ReadInt32();
+
+            var list = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                list[i] = ReadDeduplicatedString();
+            }
+
+            return list;
+        }
+
+        private ITaskItem[] ReadTaskItemList()
         {
             int count = ReadInt32();
             if (count == 0)

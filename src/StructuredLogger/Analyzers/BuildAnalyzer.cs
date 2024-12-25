@@ -21,6 +21,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
         private readonly Build build;
         private readonly DoubleWritesAnalyzer doubleWritesAnalyzer;
         private readonly FileCopyMap fileCopyMap;
+        private readonly ProjectReferenceGraph projectReferenceGraph;
         private readonly ResolveAssemblyReferenceAnalyzer resolveAssemblyReferenceAnalyzer;
         private readonly CppAnalyzer cppAnalyzer;
         private readonly Dictionary<string, TaskStatistic> taskDurations = new();
@@ -35,8 +36,15 @@ namespace Microsoft.Build.Logging.StructuredLogger
             resolveAssemblyReferenceAnalyzer = new ResolveAssemblyReferenceAnalyzer();
             cppAnalyzer = new CppAnalyzer();
             fileCopyMap = new FileCopyMap();
+            projectReferenceGraph = new ProjectReferenceGraph(build);
             build.FileCopyMap = fileCopyMap;
+            build.ProjectReferenceGraph = projectReferenceGraph;
             build.SearchExtensions.Add(fileCopyMap);
+
+            if (build.EvaluationFolder != null)
+            {
+                build.SearchExtensions.Add(projectReferenceGraph);
+            }
         }
 
         public static void AnalyzeBuild(Build build)
@@ -363,6 +371,31 @@ namespace Microsoft.Build.Logging.StructuredLogger
 
             fileCopyMap.AnalyzeTask(task);
             doubleWritesAnalyzer.AnalyzeTask(task);
+
+            CollapseMessagesToSubfolder(task);
+        }
+
+        private void CollapseMessagesToSubfolder(Task task)
+        {
+            var messages = task.Children.OfType<Message>().ToArray();
+            if (messages.Length <= 10)
+            {
+                return;
+            }
+
+            for (int i = task.Children.Count - 1; i >= 0; i--)
+            {
+                if (task.Children[i] is Message)
+                {
+                    task.Children.RemoveAt(i);
+                }
+            }
+
+            var subfolder = task.GetOrCreateNodeWithName<Folder>(Strings.Messages);
+            foreach (var message in messages)
+            {
+                subfolder.AddChild(message);
+            }
         }
 
         private void UpdateTaskDurations(Task task)
@@ -397,6 +430,11 @@ namespace Microsoft.Build.Logging.StructuredLogger
         {
             MarkAsLowRelevanceIfNeeded(target);
             AddDependsOnTargets(target);
+
+            if (target.Name == "_CopyOutOfDateSourceItemsToOutputDirectory" && target.Skipped)
+            {
+                fileCopyMap.AnalyzeTarget(target);
+            }
         }
 
         private static void AddDependsOnTargets(Target target)
