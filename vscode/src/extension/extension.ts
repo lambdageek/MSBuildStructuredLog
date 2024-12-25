@@ -13,7 +13,7 @@ function isWeb(): boolean {
 }
 
 async function acquireDotNetRuntime(): Promise<string> {
-    const res: any = await vscode.commands.executeCommand('dotnet.acquire', { version: '7.0', requestingExtensionId: 'lambdageek.msbuild-structuredlog-viewer' });
+    const res: any = await vscode.commands.executeCommand('dotnet.acquire', { version: '8.0', requestingExtensionId: 'lambdageek.msbuild-structuredlog-viewer' });
     return res.dotnetPath;
 }
 
